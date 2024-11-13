@@ -2,6 +2,7 @@
 
 GPStool is a tool that decodes MAVlink messages (aka Sensor files) from Yuneec drones. It may be the base for future specialized tool for different purposes to analyze sensor files.
 
+![Screenshot](Screenshot_GPStool.png)
 
 **Usage**
 ---------
