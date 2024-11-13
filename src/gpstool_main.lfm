@@ -1,0 +1,347 @@
+object Form1: TForm1
+  Left = 1544
+  Height = 680
+  Top = 195
+  Width = 1143
+  Caption = 'Form1'
+  ClientHeight = 680
+  ClientWidth = 1143
+  OnClose = FormClose
+  OnCreate = FormCreate
+  Position = poScreenCenter
+  ShowHint = True
+  LCLVersion = '3.3.0.0'
+  object plUser: TPanel
+    Left = 0
+    Height = 64
+    Top = 0
+    Width = 1143
+    Align = alTop
+    ClientHeight = 64
+    ClientWidth = 1143
+    TabOrder = 0
+    object btnClose: TBitBtn
+      Left = 1018
+      Height = 30
+      Top = 16
+      Width = 100
+      Action = actClose
+      Anchors = [akTop, akRight]
+      Images = ImageList1
+      ImageIndex = 0
+      TabOrder = 1
+    end
+    object lblTime: TLabel
+      Left = 848
+      Height = 16
+      Top = 30
+      Width = 30
+      Anchors = [akTop, akRight]
+      Caption = 'Time'
+    end
+    object cbSaveCSV: TCheckBox
+      Left = 264
+      Height = 23
+      Top = 23
+      Width = 90
+      Caption = 'cbSaveCSV'
+      TabOrder = 2
+    end
+    object btnContinue: TSpeedButton
+      Left = 176
+      Height = 30
+      Top = 16
+      Width = 30
+      Action = actContinue
+      Images = ImageList1
+      ImageIndex = 3
+    end
+    object btnHalt: TSpeedButton
+      Left = 136
+      Height = 30
+      Top = 16
+      Width = 30
+      Action = actHalt
+      Images = ImageList1
+      ImageIndex = 2
+    end
+    object btnEnd: TSpeedButton
+      Left = 216
+      Height = 30
+      Top = 16
+      Width = 30
+      Action = actEnd
+      Images = ImageList1
+      ImageIndex = 4
+    end
+    object btnLoad: TBitBtn
+      Left = 16
+      Height = 30
+      Top = 16
+      Width = 100
+      Action = actLoadFile
+      Images = ImageList1
+      ImageIndex = 1
+      TabOrder = 0
+    end
+    object barSleepTime: TTrackBar
+      Left = 392
+      Height = 37
+      Top = 9
+      Width = 144
+      LineSize = 2
+      Max = 1000
+      Position = 0
+      Color = clBlue
+      ParentColor = False
+      TabOrder = 3
+    end
+  end
+  object plData: TPanel
+    Left = 0
+    Height = 616
+    Top = 64
+    Width = 1143
+    Align = alClient
+    ClientHeight = 616
+    ClientWidth = 1143
+    TabOrder = 1
+    object gbPolar: TGroupBox
+      Left = 608
+      Height = 569
+      Top = 16
+      Width = 513
+      Anchors = [akTop, akLeft, akRight, akBottom]
+      Caption = 'gbPolar'
+      ClientHeight = 552
+      ClientWidth = 511
+      TabOrder = 0
+      object SatPolar: TChart
+        Left = 0
+        Height = 552
+        Top = 0
+        Width = 511
+        AxisList = <        
+          item
+            Marks.LabelBrush.Style = bsClear
+            Minors = <>
+            Title.LabelFont.Orientation = 900
+            Title.LabelBrush.Style = bsClear
+          end        
+          item
+            Alignment = calBottom
+            Marks.LabelBrush.Style = bsClear
+            Minors = <>
+            Title.LabelBrush.Style = bsClear
+          end>
+        Title.Text.Strings = (
+          'TAChart'
+        )
+        OnAfterDrawBackWall = SatPolarAfterDrawBackWall
+        Align = alClient
+        object SatPolarSeries: TPolarSeries
+          Legend.Visible = False
+          LinePen.Color = clDefault
+          Pointer.Pen.Width = 4
+          Pointer.Style = psHexagon
+          ShowPoints = False
+        end
+      end
+    end
+    object gbData: TGroupBox
+      Left = 16
+      Height = 240
+      Top = 16
+      Width = 568
+      Anchors = [akTop, akLeft, akBottom]
+      Caption = 'gbData'
+      ClientHeight = 223
+      ClientWidth = 566
+      TabOrder = 1
+      object gridGPSdata: TStringGrid
+        Left = 0
+        Height = 223
+        Top = 0
+        Width = 566
+        Align = alClient
+        ColCount = 2
+        FixedRows = 0
+        TabOrder = 0
+        ColWidths = (
+          343
+          245
+        )
+      end
+    end
+    object gbSatSNR: TGroupBox
+      Left = 16
+      Height = 304
+      Top = 280
+      Width = 568
+      Anchors = [akLeft, akBottom]
+      Caption = 'gbSatSNR'
+      ClientHeight = 287
+      ClientWidth = 566
+      TabOrder = 2
+      object ChartSatSNR: TChart
+        Left = 0
+        Height = 287
+        Top = 0
+        Width = 566
+        AxisList = <        
+          item
+            Marks.LabelBrush.Style = bsClear
+            Minors = <>
+            Title.LabelFont.Orientation = 900
+            Title.LabelBrush.Style = bsClear
+          end        
+          item
+            Alignment = calBottom
+            Marks.Format = '%2:s'
+            Marks.LabelBrush.Style = bsClear
+            Marks.Style = smsLabel
+            Minors = <>
+            Title.LabelBrush.Style = bsClear
+          end>
+        Title.Text.Strings = (
+          'TAChart'
+        )
+        Align = alClient
+        object BarSatSNR: TBarSeries
+          BarBrush.Color = clRed
+        end
+      end
+    end
+    object StatusBar: TStatusBar
+      Left = 1
+      Height = 18
+      Top = 597
+      Width = 1141
+      Panels = <      
+        item
+          Width = 100
+        end      
+        item
+          Width = 100
+        end      
+        item
+          Width = 50
+        end>
+      SimplePanel = False
+    end
+  end
+  object OpenDialog: TOpenDialog
+    Left = 432
+    Top = 280
+  end
+  object ActionList1: TActionList
+    Images = ImageList1
+    Left = 432
+    Top = 216
+    object actLoadFile: TAction
+      Caption = 'actLoadFile'
+      ImageIndex = 1
+      OnExecute = actLoadFileExecute
+    end
+    object actClose: TAction
+      Caption = 'actClose'
+      ImageIndex = 0
+      OnExecute = actCloseExecute
+    end
+    object actHalt: TAction
+      ImageIndex = 2
+      OnExecute = actHaltExecute
+    end
+    object actContinue: TAction
+      ImageIndex = 3
+      OnExecute = actContinueExecute
+    end
+    object actEnd: TAction
+      ImageIndex = 4
+      OnExecute = actEndExecute
+    end
+    object actSaveCSV: TAction
+      Caption = 'actSaveCSV'
+      ImageIndex = 5
+      OnExecute = actSaveCSVExecute
+    end
+    object actSaveGrid: TAction
+      Caption = 'actSaveGrid'
+      ImageIndex = 5
+    end
+    object actSaveChart: TAction
+      Caption = 'actSaveChart'
+      ImageIndex = 5
+    end
+    object actAbout: TAction
+      Caption = 'actAbout'
+      ImageIndex = 6
+    end
+  end
+  object ImageList1: TImageList
+    Left = 512
+    Top = 280
+    Bitmap = {
+      4C7A070000001000000010000000520600000000000078DAED587B6C536514BF
+      28FA17CF38FED5C53FD420241A131335D11B252A894A3250600F288B8A8A4FDE
+      31E06A3482B8F194B1A164880F60A8204CC34B7BC73619EB5EDDDA6EACEB6ED7
+      755D9FEB63ED60BC8EE7DCF67677E5F6719BC560A4C96FF7EB39E7F77DE7FB9D
+      73DAA500C0C02D0296E5F20849FC8B09F2BEEA459318DDB5494CDB355CE7CB70
+      7347FDE77213F1B3183BD053BA87C81DF59D4B94C3E2D1B8481E37736FCE2D5E
+      03317E32EE4118E526D626FEAE93A37B88FBE0B9790AEA20C7CF4FB78663F3D7
+      A59DBF9C56729A26ABBF849B27BF6FF2FA27AAD168FF24AB7FE2FE4CC7FF7F45
+      69AD6743698D472D624FAD67A3D63A3C355DFEDBA73CF0930B62A8E8BF0E73BE
+      B1344AF78CDB7FC318FE4937FCE0BC01071C37A0C27E1DBEB55D8572EB1528B5
+      8CC0AE9ECBB0DD3C0C25A6306CB918824D1D43B0F8D77E90F20BAB9CB0511B80
+      65F8549D70C0D2E30E28F86D00F28ED921F7A85D885FF84B3FBCF6B30D161CE9
+      03B6BC07280F6DEFF0D3C4A7B8826303F0BD13D2C68EAE11D87BDEAB22FE7CDC
+      937248167F00F19D2382FD033760758D7F64778DE741E2BF7880871567BC82BD
+      02B18F34400DF7DAAE4179DF5528B35E85D2DE2BB0DB720576F123B0B36704F2
+      8E0E84EB2D97EE20FE135F9B607DBD5FB06F375F86ADDD9751AF4B50DC350C5B
+      105F76866113E28B8E107C6E0CC167862178762F5F2DEAF7C85717A1481714EC
+      9FEA83A06E0FC2276D41D8A80BC086563F7CDCE287F5CD3E58D7E483358D83B0
+      4A3B08B3369BB688FCC77798606DD320AC46DF4AAD173E6AF0C207173CF07EBD
+      07DE3BEF86157FBBE09D3A17BC55EB84E535589B537628ABF3A844FE73FB78B4
+      3BE1CD730E78BDDA0185DC002CD3D8612962C99FFD5070B61FF21179676C908B
+      987B900751BB68FFAA13F59A2C6A3D45A276B722C22EEE6E97413D07F12E623D
+      62894BAFBE2F25CFCD4DE43976ADBE9271236AF547985DC6C3CC665CFF68A864
+      9C88D3B8D76C396EC8C54D41FF59E4FCE134AA1F90C9E94E5EC3BE817B392D1A
+      F6D538DF04E4FEDE50C9945D1AE092EAAAD3B0B3700F87F934FB9468B370EC22
+      E45F18C233D2D1A7A79A7D05E30DC3CE483CAEB578AFE7A5317806A04D1DBF16
+      819CF3689B8BC842FFE0106AA7846FD6B0ABDA0F333BD1FE18EED5189F632A3E
+      BE7F09792788AFCF8CFF32F28F3B8C99E58F1AAED663FE512D1AD0FF82123EDA
+      EA493F5A635F2CC4F70DF13924ACDF5FEC3C8CD70F7B22F51BB2731330972AEC
+      9FF2802B79FF18EBD8D998AFE3621DFB645C0F4E311C61CEA0EF24CECA4337F5
+      B7939B887DBB1CFD2EECB70509E66E22DE658D21323F7586C3B1F9F9293A3FA7
+      70EF59A9EE1772737749E6771DA20067EADE74E7DF62504F731AD4F391B78A40
+      6BB2A5F1B93143871A629E7ED4E278FB21A6187BB498FA8C6C1D8798328CC992
+      CD59CB3E8CF7ECE1354C09C64C93FB7C405F31C658C295ECCC38DF0CB2F7706C
+      CAFF7151DF7CCC850F49F2A09CE9DCB4F5D1305B3B0E327B84FD50173CDB2FCD
+      1935FB106DCD068E9DE77271723A4D233D50D3A9183B9FE6286EB6D4D4F35134
+      1B346C8ECFC74D88EB7F9ADD1CAA0F6A5D9C842F00CFD0F577A91F95F08BC5FA
+      1A33E0635F9660DCCA68FE2732C8BF8AF2B744F40B28D10F6B379D340F69D553
+      A3F52BE3F733DBD2AD1F5FC16CC35EDC23A94716F504F546CADA736C019ECDC7
+      F771B8819D89F66EECA3ED98DF3D32359F4E390AFDDB30B67FA579605F95D1DD
+      A8BEF85D5882CF127C56918D7A2E94607EC6E622F4554EB43E841CB2DD9EFF7F
+      67FE71CDD20C4841B60CE71F127CFF299A7F19BEA2F98FE72B98FF44E7279CFF
+      54FADD9EFFF19BFF70210352343636C6D0D4D404CDCDCDD0DADA0A6D6D6D6030
+      188498E142C67ABD93BB5F8E4FF12D2D2DA0D3E9A0BDBD3DC621984CA6D89AF6
+      90E3EBF57A301A8DD0D9D9095D5D5DD0DDDD1DF3F5F5F58D8995E3D31966B319
+      789E87DEDEDE311CA7D399926FB55AC166B381DD6E0787C3012E972BE6F3FBFD
+      29F97486DBED06AFD70B3E9F0F0281000483C11852F19540CA57F2BACD1F7F3E
+      7DBAA50B393E836FD3C578F64F32E08BFE4026BF216433D9C01669A082A90036
+      9B85ECEC6C45FBB00C0B9A6722EF68AD16BE3E949D4F671368AD942FDE9D40B9
+      2BC95FE0E0992A46256840F9AB542A507277E2151565767FF1EC4CF9620EFF55
+      3EE92FBD3FAD95EABFB4888F597886177248B70784DEA71A4AA0B40729560EE3
+      FD5BDF3F1D016AD5
+    }
+  end
+  object SatSNRBarSource: TListChartSource
+    Left = 507
+    Top = 216
+  end
+  object SatPolarSource: TListChartSource
+    Left = 504
+    Top = 160
+  end
+end
