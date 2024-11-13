@@ -93,7 +93,7 @@ type
     procedure WriteGridGPSdataHeader;
     procedure ResetGlobalVariables;
     procedure WriteHeaderCSVlist;
-    procedure WriteDataCSVlist(const sats: TGPSdata);
+    procedure WriteGPSDataCSVlist(const sats: TGPSdata);
     procedure InfoMessageToStatusbar(info: string);
   public
     function  DecodeOneSensorMessage(const msg: TMAVmessage; offset: byte; var data: TGPSdata): boolean;
@@ -108,7 +108,7 @@ var
   NumMsgUsed, NumMsgTotal: integer;
   csvlist: TStringList;
   inputstream: TMemoryStream;
-  PositionInStream: uint64;
+  PositionInStream: int64;
 
 {$I GPStool_en.inc}
 
@@ -363,7 +363,6 @@ function TForm1.DecodeOneSensorMessage(const msg: TMAVmessage; offset: byte; var
   begin
     result:=true;
     data.timeUTC:=UnixToDateTime(MavGetUInt64(msg, offset) div 1000000);  {us --> s};
-    data.yuneectime:=UnixToDateTime(YuneecTimeStampInSeconds(msg));
     if msg.msglength=10 then
       data.boottime:=MilliSecondsToDateTime(MavGetUInt32(msg, offset+8) and $FFFF)
     else
@@ -377,7 +376,6 @@ function TForm1.DecodeOneSensorMessage(const msg: TMAVmessage; offset: byte; var
   begin
     result:=true;
     data.boottime:=MavGetUInt64(msg, offset)/MilliSecondsPerDay/1000;
-    data.yuneectime:=UnixToDateTime(YuneecTimeStampInSeconds(msg));
     data.lat:=MavGetInt32(msg, offset+8);
     data.lon:=MavGetInt32(msg, offset+12);
     data.altMSL:=MavGetInt32(msg, offset+16);
@@ -405,7 +403,6 @@ function TForm1.DecodeOneSensorMessage(const msg: TMAVmessage; offset: byte; var
 
   begin
     result:=true;
-    data.yuneectime:=UnixToDateTime(YuneecTimeStampInSeconds(msg));
     data.sats_visible:=msg.msgbytes[offset];
     for i:=0 to MAVsatCount do begin
       data.sat_prn[i]:=msg.msgbytes[i+offset+1];
@@ -420,6 +417,8 @@ function TForm1.DecodeOneSensorMessage(const msg: TMAVmessage; offset: byte; var
 begin
   result:=false;
   data.sats_visible:=max8;
+  if btnLoad.Tag=MagicFD then
+    data.yuneectime:=UnixToDateTime(YuneecTimeStampInSeconds(msg));
   case msg.msgid of
      2: SYS_TIME;
     24: GPS_RAW_INT;
@@ -429,7 +428,7 @@ end;
 
 procedure TForm1.ProcessMAVFile(const UsedMagic: byte);
 var
-  b: byte;
+  b, offset: byte;
   msg: TMAVmessage;
   data: TGPSdata;
 
@@ -442,6 +441,7 @@ var
         msg.sysid:=msg.msgbytes[5];
         msg.targetid:=msg.msgbytes[6];
         msg.msgid:=MavGetInt32(msg, 7) and $FFFFFF;      {MAVlink Message ID has 3 bytes}
+        offset:=LengthFixPartFD;
       end;
 
       MagicBC: begin
@@ -450,6 +450,7 @@ var
         msg.sysid:=msg.msgbytes[3];
         msg.targetid:=msg.msgbytes[4];
         msg.msgid:=msg.msgbytes[5];
+        offset:=LengthFixPartBC;
       end;
     end;
   end;
@@ -486,14 +487,14 @@ begin
     SetFixPartValuesForMsgType;
     inc(NumMsgTotal);
     if CheckMessage then begin
-      if DecodeOneSensorMessage(msg, LengthFixPartBC, data) then begin
+      if DecodeOneSensorMessage(msg, offset, data) then begin
         inc(NumMsgUsed);
         if data.boottime>0 then begin
           if data.sats_visible<>max8 then begin
             CreateSatPolarDiagram(data);
             CreateSatSNRBarChart(data);
             WriteGridGPSdataValues(data);
-            WriteDataCSVlist(data);
+            WriteGPSDataCSVlist(data);
           end;
         end;
         Application.ProcessMessages;
@@ -581,7 +582,8 @@ begin
         gridGPSdata.Cells[1, 1]:=lblTime.Caption;
       end;
 
-      gridGPSdata.Cells[1, 2]:=FormatDateTime(timefull, sats.yuneectime);
+      if btnLoad.Tag=MagicFD then
+        gridGPSdata.Cells[1, 2]:=FormatDateTime(timefull, sats.yuneectime);
       gridGPSdata.Cells[1, 3]:=FormatCoordinates(sats.lat);
       gridGPSdata.Cells[1, 4]:=FormatCoordinates(sats.lon);
       gridGPSdata.Cells[1, 5]:=FormatAltitude(sats.altMSL);
@@ -603,7 +605,7 @@ begin
   end;
 end;
 
-procedure TForm1.WriteDataCSVlist(const sats: TGPSdata);
+procedure TForm1.WriteGPSDataCSVlist(const sats: TGPSdata);
 var
   i: integer;
   CSVrow: string;
