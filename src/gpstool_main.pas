@@ -23,17 +23,24 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ActnList, StdCtrls,
-  ExtCtrls, Buttons, ComCtrls, Grids, FileUtil, DateUtils, TAGraph, TATypes,
-  TASeries, TAChartUtils, TAGeometry, TARadialSeries, TASources, mav_gps;
+  ExtCtrls, Buttons, ComCtrls, Grids, XMLPropStorage, Menus,
+  FileUtil, DateUtils, TAGraph, TATypes, TASeries, TAChartUtils, TAGeometry,
+  TARadialSeries, TASources, TAIntervalSources, mav_gps;
 
 const
   clSatUsed=clLime;
   clSatVisible=clMoneyGreen;
   clPolarLabel=clSkyBlue;
+  clDataSerie1=clRed;
+  clTabs=$00F7F7F7;
   PolarSatSize=8;
   tab1=' ';
   tab2='  ';
   sep=';';                                               {CSV separator}
+  digits=['0'..'9', '.', ',', ':'];
+
+  meinname='Helmut Elsner';
+  appVersion='V0.2 build 2024-11-14';
 
 type
 
@@ -54,7 +61,30 @@ type
     btnClose: TBitBtn;
     btnLoad: TBitBtn;
     cbSaveCSV: TCheckBox;
+    cbFast: TCheckBox;
+    ChartData: TChart;
+    ChartDataLineSeries1: TLineSeries;
+    DateTimeIntervalDataSource: TDateTimeIntervalChartSource;
     lblTime: TLabel;
+    MainMenu1: TMainMenu;
+    mnClose: TMenuItem;
+    barStream: TProgressBar;
+    PanelChart: TPanel;
+    Separator3: TMenuItem;
+    mnMainSaveCSV: TMenuItem;
+    Separator2: TMenuItem;
+    mnMainSaveChart: TMenuItem;
+    mnMainSaveGrid: TMenuItem;
+    Separator1: TMenuItem;
+    mnOpen: TMenuItem;
+    mnAbout: TMenuItem;
+    mnInfo: TMenuItem;
+    mnFile: TMenuItem;
+    mnSaveSatSNR: TMenuItem;
+    mnSaveCSV: TMenuItem;
+    mnSaveGrid: TMenuItem;
+    pmnSatSNR: TPopupMenu;
+    pmnData: TPopupMenu;
     SatPolar: TChart;
     SatPolarSeries: TPolarSeries;
     ChartSatSNR: TChart;
@@ -70,31 +100,48 @@ type
     btnContinue: TSpeedButton;
     btnHalt: TSpeedButton;
     btnEnd: TSpeedButton;
-    StatusBar: TStatusBar;
+    SaveDialog: TSaveDialog;
     gridGPSdata: TStringGrid;
     barSleepTime: TTrackBar;
+    Splitter1: TSplitter;
+    StatusBar: TStatusBar;
+    XMLPropStorage1: TXMLPropStorage;
+    procedure actAboutExecute(Sender: TObject);
     procedure actCloseExecute(Sender: TObject);
     procedure actContinueExecute(Sender: TObject);
     procedure actEndExecute(Sender: TObject);
     procedure actHaltExecute(Sender: TObject);
     procedure actLoadFileExecute(Sender: TObject);
+    procedure actSaveChartExecute(Sender: TObject);
     procedure actSaveCSVExecute(Sender: TObject);
+    procedure actSaveGridExecute(Sender: TObject);
+    procedure cbSaveCSVChange(Sender: TObject);
+    procedure FormActivate(Sender: TObject);
     procedure FormClose(Sender: TObject; var CloseAction: TCloseAction);
+    procedure FormDropFiles(Sender: TObject; const FileNames: array of string);
+    procedure gridGPSdataHeaderClick(Sender: TObject; IsColumn: Boolean;
+      Index: Integer);
+    procedure plDataResize(Sender: TObject);
     procedure SatPolarAfterDrawBackWall(ASender: TChart; ACanvas: TCanvas;
       const ARect: TRect);
     procedure FormCreate(Sender: TObject);
   private
+    procedure DoLoadFile(aFileName: string);
     procedure CreateSatPolarDiagram(const sats: TGPSdata);
     procedure CreateSatSNRBarChart(const sats: TGPSdata);
     procedure WriteGridGPSdataValues(const sats: TGPSdata);
     procedure PrepareSatSNRBarChart;
     procedure PrepareSatPolarDiagram;
+    procedure PrepareChartData(const dataindex: integer);
+    procedure CreateChartDataLineSeries(const dataindex: integer);
     procedure ClearPositioningData;
     procedure WriteGridGPSdataHeader;
     procedure ResetGlobalVariables;
     procedure WriteHeaderCSVlist;
     procedure WriteGPSDataCSVlist(const sats: TGPSdata);
     procedure InfoMessageToStatusbar(info: string);
+    procedure SetForValidFile(aFileName: string);
+    procedure SetForInvalidFile(ErrorMessage: string);
   public
     function  DecodeOneSensorMessage(const msg: TMAVmessage; offset: byte; var data: TGPSdata): boolean;
     procedure ProcessMAVFile(const UsedMagic: byte);
@@ -104,11 +151,10 @@ type
 
 var
   Form1: TForm1;
-  stop: boolean;
+  stopping: boolean;
   NumMsgUsed, NumMsgTotal: integer;
   csvlist: TStringList;
   inputstream: TMemoryStream;
-  PositionInStream: int64;
 
 {$I GPStool_en.inc}
 
@@ -127,10 +173,23 @@ begin
   gbPolar.Hint:=hntPolar;
   cbSaveCSV.Caption:=capSaveCSV;
   cbSaveCSV.Hint:=hntSaveCSV;
+  cbFast.Caption:=capFast;
+  cbFast.Hint:=hntFast;
+
+  actSaveCSV.Caption:=capSaveCSV;
+  actSaveCSV.Hint:=hntSaveCSV;
   actClose.Caption:=capClose;
   actClose.Hint:=hntClose;
   actLoadFile.Caption:=capLoadFile;
   actLoadFile.Hint:=hntLoadFile;
+  actSaveGrid.Caption:=capSaveGrid;
+  actSaveGrid.Hint:=hntSaveGrid;
+  actSaveChart.Caption:=capSaveChart;
+  actSaveChart.Hint:=hntSaveChart;
+  actAbout.Caption:=capAbout+tab1+capApplication;
+
+  mnInfo.Caption:=capMainMenuInfo;
+  mnFile.Caption:=capMainMenuFile;
   StatusBar.Hint:=hntStatusbar;
   OpenDialog.Title:=capOpenDialog;
   lblTime.Caption:=capTime;
@@ -145,8 +204,9 @@ begin
 
   barSleepTime.Position:=100;
   cbSaveCSV.Checked:=false;
+  gridGPSdata.AlternateColor:=clTabs;
 
-  stop:=false;
+  stopping:=false;
   NumMsgUsed:=0;
   NumMsgTotal:=0;
 
@@ -163,77 +223,94 @@ begin
     inputstream.Free;
 end;
 
+procedure TForm1.FormDropFiles(Sender: TObject; const FileNames: array of string);
+begin
+  DoLoadFile(FileNames[0]);
+end;
+
+procedure TForm1.gridGPSdataHeaderClick(Sender: TObject; IsColumn: Boolean;
+  Index: Integer);
+begin
+  if index>2 then begin
+    if (index=3) or (index=4) then begin                 {Coordinates}
+      // distance to do
+    end else begin
+      PrepareChartData(index);
+      CreateChartDataLineSeries(index);
+    end;
+  end;
+end;
+
+procedure TForm1.plDataResize(Sender: TObject);
+begin
+  gbData.Height:=(plData.Height div 2)-24;
+  if gbData.Height>=440 then
+    gbData.Height:=440;                                  {Limit seizing of data table}
+  gbSatSNR.Top:=gbData.Top+gbData.Height+12;
+  gbSatSNR.Height:=plData.Height-gbData.Height-54;
+end;
+
+procedure TForm1.cbSaveCSVChange(Sender: TObject);
+begin
+  actSaveCSV.Enabled:=not cbSaveCSV.Checked;
+end;
+
+procedure TForm1.FormActivate(Sender: TObject);
+begin
+  actSaveCSV.Enabled:=not cbSaveCSV.Checked;
+end;
+
 procedure TForm1.ResetGlobalVariables;
 begin
   NumMsgUsed:=0;
   NumMsgTotal:=0;
-  csvlist.Clear;
   inputstream.Position:=0;
   inputstream.Size:=0;
-  PositionInStream:=0;                                   {Position of processing in input stream}
-  stop:=false;
-end;
-
-procedure TForm1.PrepareSatPolarDiagram;                 {Settings for the polar diagram}
-begin
-  with SatPolarSeries do begin
-    Source:=SatPolarSource;
-    Marks.Style:=smsLabel;
-    LinePen.Style:=psClear;
-    ShowPoints:=true;
-    Marks.LabelBrush.Color:=clPolarLabel;
-    Pointer.Style:=psHexagon;
-    Pointer.HorizSize:=PolarSatSize;
-    Pointer.VertSize:=PolarSatSize;
-    Pointer.Pen.Style:=psClear;
-    Pointer.Visible:=true;
-  end;
-end;
-
-procedure TForm1.PrepareSatSNRBarChart;                  {Settings for the SNR chart}
-begin
-  with ChartSatSNR do begin                              {for the whole chart}
-    Title.Visible:=false;
-    LeftAxis.Title.Caption:=capSatSNR+' [db]';
-    LeftAxis.Title.Visible:=true;
-    BottomAxis.Marks.Source:=SatSNRBarSource;
-    BottomAxis.Marks.Style:=smsLabel;
-    BottomAxis.Grid.Visible:=false;
-    BottomAxis.Marks.LabelFont.Orientation := 900;       {gedreht}
-  end;
-
-  with BarSatSNR do begin                                {For the bar serie}
-    Source:=SatSNRBarSource;
-    SeriesColor:=clSatUsed;
-  end;
+  barStream.Position:=0;
+  stopping:=false;
 end;
 
 procedure TForm1.WriteGridGPSdataHeader;
 begin
   gridGPSdata.BeginUpdate;
   try
-    gridGPSdata.RowCount:=18;
+    gridGPSdata.RowCount:=23;
     gridGPSdata.Cells[0, 0]:='Time since boot';
     gridGPSdata.Cells[0, 1]:='SYSTEM TIME UTC';
     gridGPSdata.Cells[0, 2]:='Time UTC per Message';
     gridGPSdata.Cells[0, 3]:='Latitude (WGS84 EGM96 ellipsoid)';
     gridGPSdata.Cells[0, 4]:='Longitude (WGS84 EGM96 ellipsoid)';
     gridGPSdata.Cells[0, 5]:='Altitude (MSL)';
-    gridGPSdata.Cells[0, 6]:='Number of satellites visible';
-    gridGPSdata.Cells[0, 7]:='GPS HDOP';
-    gridGPSdata.Cells[0, 8]:='GPS VDOP';
-    gridGPSdata.Cells[0, 9]:='GPS ground speed';
-    gridGPSdata.Cells[0, 10]:='Course over ground';
-    gridGPSdata.Cells[0, 11]:='GPS fix type';
-    gridGPSdata.Cells[0, 12]:='Altitude (above WGS84 EGM96 ellipsoid)';
-    gridGPSdata.Cells[0, 13]:='Position uncertainty';
-    gridGPSdata.Cells[0, 14]:='Altitude uncertainty';
-    gridGPSdata.Cells[0, 15]:='Speed uncertainty';
-    gridGPSdata.Cells[0, 16]:='Heading / track uncertainty';
-    gridGPSdata.Cells[0, 17]:='Yaw in earth frame from north';
-    gridGPSdata.AutoSizeColumn(0);
+    gridGPSdata.Cells[0, 6]:='Altitude (above WGS84 EGM96 ellipsoid)';
+    gridGPSdata.Cells[0, 7]:='Altitude above home';
+    gridGPSdata.Cells[0, 8]:='GPS ground speed';
+    gridGPSdata.Cells[0, 9]:='Ground X Speed';
+    gridGPSdata.Cells[0, 10]:='Ground Y Speed';
+    gridGPSdata.Cells[0, 11]:='Ground Z Speed';
+    gridGPSdata.Cells[0, 12]:='Course over ground';
+    gridGPSdata.Cells[0, 13]:='Heading';
+    gridGPSdata.Cells[0, 14]:='Yaw in earth frame from north';
+    gridGPSdata.Cells[0, 15]:='Number of satellites visible';
+    gridGPSdata.Cells[0, 16]:='GPS fix type';
+    gridGPSdata.Cells[0, 17]:='GPS HDOP';
+    gridGPSdata.Cells[0, 18]:='GPS VDOP';
+    gridGPSdata.Cells[0, 19]:='Position uncertainty';
+    gridGPSdata.Cells[0, 20]:='Altitude uncertainty';
+    gridGPSdata.Cells[0, 21]:='Speed uncertainty';
+    gridGPSdata.Cells[0, 22]:='Heading / track uncertainty';
   finally
     gridGPSdata.EndUpdate;
+  end;
+end;
+
+function IndexToMeasurementUnit(index: integer): shortstring;
+begin
+  result:='';
+  case index of
+    5..7: result:=' [m]';
+    8..11, 21: result:=' [m/s]';
+    19, 20: result:=' [cm]';
+    12..14, 22: result:=' [°]';
   end;
 end;
 
@@ -252,12 +329,73 @@ begin
   csvlist.Add(header);                                   {Add header to CSV file}
 end;
 
+procedure TForm1.SetForValidFile(aFileName: string);
+begin
+  InfoMessageToStatusbar(aFileName);
+  Caption:=capApplication+tab2+ExtractFileName(aFileName);
+end;
+
+procedure TForm1.SetForInvalidFile(ErrorMessage: string);
+begin
+  Caption:=capApplication;
+  StatusBar.Panels[0].Text:='0';
+  StatusBar.Panels[1].Text:='0';
+  InfoMessageToStatusbar(ErrorMessage);
+end;
+
+procedure TForm1.DoLoadFile(aFileName: string);
+var
+  PureFileName: string;
+
+begin
+  btnLoad.Tag:=0;                                       {Invalid file; Tag misused for file type}
+  ResetGlobalVariables;
+  BarSatSNR.Clear;
+  SatPolarSeries.Clear;
+  ClearPositioningData;
+
+  if FileSize(OpenDialog.FileName)<500 then begin
+    SetForInvalidFile(errSmallFile);
+    exit;
+  end;
+
+  PureFileName:=ExtractFileName(OpenDialog.FileName);
+  if (pos('.tlog', LowerCase(PureFileName))>1) or
+     (pos('.log', LowerCase(PureFileName))>1)then begin
+    SetForValidFile(aFileName);
+    btnLoad.Tag:=MagicFD;
+  end else begin
+    if pos('Sensor_', PureFileName)=1 then begin
+      SetForValidFile(aFileName);
+      btnLoad.Tag:=MagicBC;
+    end else begin
+      SetForInvalidFile(errInvalidFile);
+    end;
+  end;
+
+  inputstream.LoadFromFile(OpenDialog.FileName);
+  barStream.Max:=inputstream.Size-1;
+  ProcessMAVfile(btnLoad.Tag);
+
+  StatusBar.Panels[0].Text:=IntToStr(NumMsgTotal);
+  StatusBar.Panels[1].Text:=IntToStr(NumMsgUsed);
+  if cbSaveCSV.Checked then
+    actSaveCSVExecute(self);
+end;
+
 /////////////////////////////// Actions ////////////////////////////////////////
 
 procedure TForm1.actCloseExecute(Sender: TObject);
 begin
-  stop:=true;
+  stopping:=true;
   Close;
+end;
+
+procedure TForm1.actAboutExecute(Sender: TObject);
+begin
+  MessageDlg(capApplication+sLineBreak+AppVersion+
+             sLineBreak+sLineBreak+meinname,
+             mtInformation,[mbOK],0);
 end;
 
 procedure TForm1.InfoMessageToStatusbar(info: string);
@@ -267,7 +405,7 @@ end;
 
 procedure TForm1.actContinueExecute(Sender: TObject);
 begin
-  stop:=false;
+  stopping:=false;
   if btnLoad.Tag>0 then begin                            {Means, there was is a valid file type in progress}
     ProcessMAVfile(btnLoad.Tag);
   end;
@@ -275,71 +413,36 @@ end;
 
 procedure TForm1.actEndExecute(Sender: TObject);
 begin
-  stop:=true;
-  PositionInStream:=0;
+  stopping:=true;
+  inputstream.Position:=0;
+  barStream.Position:=0;
   StatusBar.Panels[0].Text:=IntToStr(NumMsgTotal);
   StatusBar.Panels[1].Text:=IntToStr(NumMsgUsed);
-  actSaveCSVExecute(self);
+  if cbSaveCSV.Checked then
+    actSaveCSVExecute(self);
 end;
 
 procedure TForm1.actHaltExecute(Sender: TObject);
 begin
-  stop:=true;
+  stopping:=true;
   StatusBar.Panels[0].Text:=IntToStr(NumMsgTotal);
   StatusBar.Panels[1].Text:=IntToStr(NumMsgUsed);
 end;
 
 procedure TForm1.actLoadFileExecute(Sender: TObject);
-var
-  PureFileName: string;
-
-  procedure SetForValidFile;
-  begin
-    InfoMessageToStatusbar(OpenDialog.FileName);
-    Caption:=capApplication+tab2+PureFileName;
-  end;
-
-  procedure SetForInvalidFile(ErrorMessage: string);
-  begin
-    Caption:=capApplication;
-    StatusBar.Panels[0].Text:='0';
-    StatusBar.Panels[1].Text:='0';
-    InfoMessageToStatusbar(ErrorMessage);
-  end;
-
 begin
   if OpenDialog.Execute then begin
-    btnLoad.Tag:=0;                                       {Invalid file; Tag misused for file type}
-    ResetGlobalVariables;
-    BarSatSNR.Clear;
-    SatPolarSeries.Clear;
-    ClearPositioningData;
-    WriteHeaderCSVlist;
+    DoLoadFile(OpenDialog.FileName);
+  end;
+end;
 
-    if FileSize(OpenDialog.FileName)<500 then begin
-      SetForInvalidFile(errSmallFile);
-      exit;
-    end;
-    PureFileName:=ExtractFileName(OpenDialog.FileName);
-    if (pos('.tlog', LowerCase(PureFileName))>1) or
-       (pos('.log', LowerCase(PureFileName))>1)then begin
-      SetForValidFile;
-      btnLoad.Tag:=MagicFD;
-
-    end else begin
-      if pos('Sensor_', PureFileName)=1 then begin
-        SetForValidFile;
-        btnLoad.Tag:=MagicBC;
-      end else begin
-        SetForInvalidFile(errInvalidFile);
-      end;
-    end;
-    inputstream.LoadFromFile(OpenDialog.FileName);
-    ProcessMAVfile(btnLoad.Tag);
-
-    StatusBar.Panels[0].Text:=IntToStr(NumMsgTotal);
-    StatusBar.Panels[1].Text:=IntToStr(NumMsgUsed);
-    actSaveCSVExecute(self);
+procedure TForm1.actSaveChartExecute(Sender: TObject);
+begin
+  SaveDialog.Title:=hntSaveGrid;
+  SaveDialog.FileName:=ChangeFileExt(OpenDialog.FileName, '')+'_chart.png';
+  if SaveDialog.Execute then begin
+    ChartSatSNR.SaveToBitmapFile(SaveDialog.FileName);
+    InfoMessageToStatusbar(ExtractFileName(SaveDialog.FileName)+tab1+rsSaved);
   end;
 end;
 
@@ -348,10 +451,30 @@ var
   ChangedFileName: string;
 
 begin
-  if cbSaveCSV.Checked and (csvlist.Count>1) then begin
+  if (csvlist.Count>1) then begin
     ChangedFileName:=ChangeFileExt(OpenDialog.FileName, '')+'_GPStool.csv';
-    csvlist.SaveToFile(ChangedFileName);
-    InfoMessageToStatusbar(ExtractFileName(ChangedFileName+tab1+rsSaved));
+    if cbSaveCSV.Checked then begin
+      csvlist.SaveToFile(ChangedFileName);
+      InfoMessageToStatusbar(ExtractFileName(ChangedFileName)+tab1+rsSaved);
+    end else begin
+      SaveDialog.Title:=capSaveCSV;
+      SaveDialog.FileName:=ChangedFileName;
+      if SaveDialog.Execute then begin
+        csvlist.SaveToFile(SaveDialog.FileName);
+        InfoMessageToStatusbar(ExtractFileName(SaveDialog.FileName)+tab1+rsSaved);
+      end;
+    end;
+  end else
+    InfoMessageToStatusbar(errEmptyFile);
+end;
+
+procedure TForm1.actSaveGridExecute(Sender: TObject);
+begin
+  SaveDialog.Title:=hntSaveGrid;
+  SaveDialog.FileName:=ChangeFileExt(OpenDialog.FileName, '')+'_table.csv';
+  if SaveDialog.Execute then begin
+    gridGPSdata.SaveToCSVFile(SaveDialog.FileName);
+    InfoMessageToStatusbar(ExtractFileName(SaveDialog.FileName)+tab1+rsSaved);
   end;
 end;
 
@@ -414,15 +537,30 @@ function TForm1.DecodeOneSensorMessage(const msg: TMAVmessage; offset: byte; var
     sleep(barSleepTime.Position);
   end;
 
+  procedure GLOBAL_POSITION_INT;
+  begin
+    result:=true;
+    data.boottime:=MavGetUInt32(msg, offset)/MilliSecondsPerDay;
+    data.lat:=MavGetInt32(msg, offset+4);
+    data.lon:=MavGetInt32(msg, offset+8);
+    data.altMSL:=MavGetInt32(msg, offset+12);
+    data.alt_rel:=MavGetInt32(msg, offset+16);
+    data.vx:=MavGetInt16(msg, offset+20);
+    data.vy:=MavGetInt16(msg, offset+22);
+    data.vz:=MavGetInt16(msg, offset+24);
+    data.hdg:=MavGetUInt16(msg, offset+26);
+  end;
+
 begin
   result:=false;
   data.sats_visible:=max8;
-  if btnLoad.Tag=MagicFD then
+  if btnLoad.Tag=MagicFD then                            {Trailing time stamp for all FD messages}
     data.yuneectime:=UnixToDateTime(YuneecTimeStampInSeconds(msg));
   case msg.msgid of
      2: SYS_TIME;
     24: GPS_RAW_INT;
     25: GPS_STATUS;
+    33: GLOBAL_POSITION_INT;
   end;
 end;
 
@@ -471,13 +609,17 @@ var
   end;
 
 begin
-  inputstream.Position:=PositionInStream;                {Position of processing in input stream}
   ClearMAVmessage(msg);
   GPSdata_SetDefaultValues(data);
+  if inputstream.Position=0 then begin
+    csvlist.Clear;
+    WriteHeaderCSVlist;
+  end;
   while inputstream.Position<inputstream.Size-100 do begin
     repeat                                               {Try to find next UsedMagic in stream}
       b:=inputstream.ReadByte;
-    until (b=UsedMagic) or (inputstream.Position>=inputstream.Size-LengthFixPartFD-12);
+    until (b=UsedMagic) or
+          (inputstream.Position>=inputstream.Size-LengthFixPartFD-12);
 
     msg.msgbytes[0]:=b;
     msg.msglength:=inputstream.ReadByte;                 {Lenght payload is without CRC}
@@ -490,21 +632,30 @@ begin
       if DecodeOneSensorMessage(msg, offset, data) then begin
         inc(NumMsgUsed);
         if data.boottime>0 then begin
-          if data.sats_visible<>max8 then begin
-            CreateSatPolarDiagram(data);
-            CreateSatSNRBarChart(data);
+          if (data.sats_visible<>max8) and (data.sats_visible<>0) then begin
+            if (not cbFast.Checked) and (data.fix_type>0) then begin
+              CreateSatPolarDiagram(data);
+              CreateSatSNRBarChart(data);
+            end;
             WriteGridGPSdataValues(data);
             WriteGPSDataCSVlist(data);
           end;
         end;
-        Application.ProcessMessages;
-        if stop then begin
-          PositionInStream:=inputstream.Position;
+        barStream.Position:=inputstream.Position;
+        if not cbFast.Checked then
+          Application.ProcessMessages;
+        if stopping then begin
           exit;
         end;
       end;
     end;
   end;
+  if  cbFast.Checked then begin
+    CreateSatPolarDiagram(data);
+    CreateSatSNRBarChart(data);
+  end;
+  inputstream.Position:=0;
+  barStream.Position:=barStream.Max;
 end;
 
 
@@ -529,7 +680,7 @@ begin
   try
     SatPolarSeries.Clear;
     for i:=0 to MAVsatCount do begin
-      if (sats.sat_used[i]=1) and (sats.sats_visible>0) then
+      if (sats.sat_used[i]=1) then
         IndicatorColor:=clSatUsed
       else
         IndicatorColor:=clSatVisible;
@@ -546,7 +697,7 @@ end;
 
 procedure TForm1.CreateSatSNRBarChart(const sats: TGPSdata);
 var
-  i, NumSatsInUse: integer;
+  i, NumSatsInUse, NumSatsVisible: integer;
   IndicatorColor: TColor;
 
 begin
@@ -556,14 +707,17 @@ begin
   ChartSatSNR.Title.Visible:=true;
   try
     for i:=0 to MAVsatCount do begin
-      if (sats.sat_used[i]=1) and (sats.sats_visible>0) then begin
+      if (sats.sat_used[i]=1) then begin
         IndicatorColor:=clSatUsed;
         inc(NumSatsInUse);
       end else
         IndicatorColor:=clSatVisible;
       SatSNRBarSource.Add(i, sats.sat_snr[i], 'ID'+IntToStr(sats.sat_prn[i]), IndicatorColor);
     end;
-    ChartSatSNR.Title.Text[0]:=IntToStr(sats.sats_visible)+tab1+rsVisible+tab2+
+    NumSatsVisible:=sats.sats_visible;
+    if NumSatsVisible=max8 then
+      NumSatsVisible:=0;
+    ChartSatSNR.Title.Text[0]:=IntToStr(NumSatsVisible)+tab1+rsVisible+tab2+
                                IntToStr(NumSatsInUse)+tab1+rsInUse;
   finally
     ChartSatSNR.EnableRedrawing;
@@ -584,21 +738,33 @@ begin
 
       if btnLoad.Tag=MagicFD then
         gridGPSdata.Cells[1, 2]:=FormatDateTime(timefull, sats.yuneectime);
-      gridGPSdata.Cells[1, 3]:=FormatCoordinates(sats.lat);
-      gridGPSdata.Cells[1, 4]:=FormatCoordinates(sats.lon);
-      gridGPSdata.Cells[1, 5]:=FormatAltitude(sats.altMSL);
-      gridGPSdata.Cells[1, 6]:=IntToStr(sats.sats_visible);
-      gridGPSdata.Cells[1, 7]:=FormatDOP(sats.eph);
-      gridGPSdata.Cells[1, 8]:=FormatDOP(sats.epv);
-      gridGPSdata.Cells[1, 9]:=FormatSpeed(sats.vel);
-      gridGPSdata.Cells[1, 10]:=FormatHdg(sats.cog);
-      gridGPSdata.Cells[1, 11]:=FixTypeToStr(sats.fix_type);
-      gridGPSdata.Cells[1, 12]:=FormatAltitude(sats.alt_ellipsoid);
-      gridGPSdata.Cells[1, 13]:=FormatAcc(sats.h_acc);
-      gridGPSdata.Cells[1, 14]:=FormatAcc(sats.v_acc);
-      gridGPSdata.Cells[1, 15]:=FormatVelAcc(sats.vel_acc);
-      gridGPSdata.Cells[1, 16]:=FormatHdgAcc(sats.hdg_acc);
-      gridGPSdata.Cells[1, 17]:=IntToStr(sats.yaw);
+      if sats.fix_type>0 then begin
+//  From GPS_RAW_INT (24)
+        gridGPSdata.Cells[1, 3]:=FormatCoordinates(sats.lat);
+        gridGPSdata.Cells[1, 4]:=FormatCoordinates(sats.lon);
+        gridGPSdata.Cells[1, 5]:=FormatAltitude(sats.altMSL);
+        gridGPSdata.Cells[1, 6]:=FormatAltitude(sats.alt_ellipsoid);
+        gridGPSdata.Cells[1, 8]:=FormatSpeed(sats.vel);
+        gridGPSdata.Cells[1, 12]:=FormatHdg(sats.cog);
+        gridGPSdata.Cells[1, 14]:=IntToStr(sats.yaw);
+        gridGPSdata.Cells[1, 17]:=FormatDOP(sats.eph);
+        gridGPSdata.Cells[1, 18]:=FormatDOP(sats.epv);
+        gridGPSdata.Cells[1, 19]:=FormatAcc(sats.h_acc);
+        gridGPSdata.Cells[1, 20]:=FormatAcc(sats.v_acc);
+        gridGPSdata.Cells[1, 21]:=FormatVelAcc(sats.vel_acc);
+        gridGPSdata.Cells[1, 22]:=FormatHdgAcc(sats.hdg_acc);
+      end;
+
+//  From GLOBAL_POSITION_INT (33)
+      gridGPSdata.Cells[1, 7]:=FormatAltitude(sats.alt_rel);
+      gridGPSdata.Cells[1, 9]:=FormatXYZSpeed(sats.vx);
+      gridGPSdata.Cells[1, 10]:=FormatXYZSpeed(sats.vy);
+      gridGPSdata.Cells[1, 11]:=FormatXYZSpeed(sats.vz);
+      gridGPSdata.Cells[1, 13]:=FormatHdg(sats.hdg);
+
+//  From GPS_RAW_INT (24)
+      gridGPSdata.Cells[1, 15]:=IntToStr(sats.sats_visible);
+      gridGPSdata.Cells[1, 16]:=FixTypeToStr(sats.fix_type);
     finally
       gridGPSdata.EndUpdate;
     end;
@@ -618,6 +784,41 @@ begin
 // Add additional values at the end (possibly for checking something
 // + sep + value
     csvlist.Add(CSVrow);
+  end;
+end;
+
+function GetFloatFromTable(const ValueFromTable: string): single;
+var
+  s: string;
+  i: integer;
+
+begin
+  s:=ValueFromTable;
+  for i:=length(s) downto 1 do
+    if not (s[i] in digits) then
+      delete(s, i, 1);
+  result:=StrToFloatDef(s, 0);
+end;
+
+procedure TForm1.CreateChartDataLineSeries(const dataindex: integer);
+var
+  i: integer;
+  value: single;
+  timestamp: TDateTime;
+
+begin
+  if csvlist.Count>10 then begin
+    ChartData.DisableRedrawing;
+    ChartDataLineSeries1.Clear;
+    try
+      for i:=1 to csvlist.Count-1 do begin
+        value:=GetFloatFromTable(csvlist[i].Split([sep])[dataindex]);
+        timestamp:=ScanDateTime(timezzz, csvlist[i].Split([sep])[0]);
+        ChartDataLineSeries1.AddXY(timestamp, value);
+      end;
+    finally
+      ChartData.EnableRedrawing;
+    end;
   end;
 end;
 
@@ -731,6 +932,56 @@ procedure TForm1.SatPolarAfterDrawBackWall(ASender: TChart; ACanvas: TCanvas;
 begin
   DrawPolarAxes(ASender, 90, 30, '°');
 end;
+
+procedure TForm1.PrepareSatPolarDiagram;                 {My settings for the polar diagram}
+begin
+  with SatPolarSeries do begin
+    Source:=SatPolarSource;
+    Marks.Style:=smsLabel;
+    LinePen.Style:=psClear;
+    ShowPoints:=true;
+    Marks.LabelBrush.Color:=clPolarLabel;
+    Pointer.Style:=psHexagon;
+    Pointer.HorizSize:=PolarSatSize;
+    Pointer.VertSize:=PolarSatSize;
+    Pointer.Pen.Style:=psClear;
+    Pointer.Visible:=true;
+  end;
+end;
+
+procedure TForm1.PrepareSatSNRBarChart;                  {My settings for the SNR chart}
+begin
+  with ChartSatSNR do begin                              {for the whole chart}
+    Title.Visible:=false;
+    LeftAxis.Title.Caption:=capSatSNR+' [db]';
+    LeftAxis.Title.Visible:=true;
+    BottomAxis.Marks.Source:=SatSNRBarSource;
+    BottomAxis.Marks.Style:=smsLabel;
+    BottomAxis.Grid.Visible:=false;
+    BottomAxis.Marks.LabelFont.Orientation := 900;       {gedreht}
+  end;
+
+  with BarSatSNR do begin                                {For the bar serie}
+    Source:=SatSNRBarSource;
+    SeriesColor:=clSatUsed;
+  end;
+end;
+
+procedure TForm1.PrepareChartData(const dataindex: integer);
+begin
+  with ChartData do begin
+    Title.Visible:=false;
+    LeftAxis.Title.Caption:=gridGPSdata.Cells[0, dataindex]+IndexToMeasurementUnit(dataindex);
+    LeftAxis.Title.Visible:=true;
+    BottomAxis.Marks.Source:=DateTimeIntervalDataSource;
+    BottomAxis.Marks.Style:=smsLabel;
+    BottomAxis.Marks.Format:='%2:s';
+  end;
+  DateTimeIntervalDataSource.DateTimeFormat:='nn:ss';
+  DateTimeIntervalDataSource.Params.NiceSteps:='5|10';   {x-axis labels wider steps}
+  ChartDataLineSeries1.SeriesColor:=clDataSerie1;
+end;
+
 
 end.
 

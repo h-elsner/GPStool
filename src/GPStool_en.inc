@@ -18,10 +18,21 @@ resourcestring                                     {english}
   capTime='Time';
   capSaveCSV='Save as CSV file';
   hntSaveCSV='Automatically save GPS data as CSV file in the same folder as the input files are';
+  capFast='Fast processing w/o GUI update';
+  hntFast='Fast processing without update GUI but creates CSV data. Automatic save should be checked.';
   hntSleepTime='Set delay in ms (0..1000), default: 100';
+  capSaveGrid='Save data table';
+  hntSaveGrid='Save snapshot of the current values in the data table';
+  capSaveChart='Save chart';
+  hntSaveChart='Save snapshot of the diagram as picture';
+  capAbout='About';
+
+  capMainMenuFile='File';
+  capMainMenuInfo='Info';
 
   errInvalidFile='Invalid file';
   errSmallFile='File too small';
+  errEmptyFile='File is empty, nothing saved';
 
   rsInUse='satellites in use';
   rsVisible='satellites visible';

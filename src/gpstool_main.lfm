@@ -1,27 +1,34 @@
 object Form1: TForm1
-  Left = 1544
-  Height = 680
-  Top = 195
-  Width = 1143
+  Left = 1823
+  Height = 859
+  Top = 141
+  Width = 1226
+  AllowDropFiles = True
   Caption = 'Form1'
-  ClientHeight = 680
-  ClientWidth = 1143
+  ClientHeight = 859
+  ClientWidth = 1226
+  Constraints.MinHeight = 850
+  Constraints.MinWidth = 1150
+  Menu = MainMenu1
+  OnActivate = FormActivate
   OnClose = FormClose
   OnCreate = FormCreate
-  Position = poScreenCenter
+  OnDropFiles = FormDropFiles
+  Position = poDefaultPosOnly
+  SessionProperties = 'barSleepTime.Position;cbFast.Checked;cbSaveCSV.Checked;Height;Left;OpenDialog.FileName;Top;Width;WindowState;Splitter1.Top'
   ShowHint = True
   LCLVersion = '3.3.0.0'
   object plUser: TPanel
     Left = 0
-    Height = 64
+    Height = 72
     Top = 0
-    Width = 1143
+    Width = 1226
     Align = alTop
-    ClientHeight = 64
-    ClientWidth = 1143
+    ClientHeight = 72
+    ClientWidth = 1226
     TabOrder = 0
     object btnClose: TBitBtn
-      Left = 1018
+      Left = 1101
       Height = 30
       Top = 16
       Width = 100
@@ -32,20 +39,21 @@ object Form1: TForm1
       TabOrder = 1
     end
     object lblTime: TLabel
-      Left = 848
-      Height = 16
-      Top = 30
-      Width = 30
+      Left = 939
+      Height = 17
+      Top = 27
+      Width = 28
       Anchors = [akTop, akRight]
       Caption = 'Time'
     end
     object cbSaveCSV: TCheckBox
       Left = 264
-      Height = 23
+      Height = 21
       Top = 23
-      Width = 90
+      Width = 82
       Caption = 'cbSaveCSV'
       TabOrder = 2
+      OnChange = cbSaveCSVChange
     end
     object btnContinue: TSpeedButton
       Left = 176
@@ -96,31 +104,49 @@ object Form1: TForm1
       ParentColor = False
       TabOrder = 3
     end
+    object barStream: TProgressBar
+      Left = 1
+      Height = 12
+      Top = 59
+      Width = 1224
+      Align = alBottom
+      TabOrder = 4
+    end
+    object cbFast: TCheckBox
+      Left = 544
+      Height = 21
+      Top = 23
+      Width = 55
+      Caption = 'cbFast'
+      TabOrder = 5
+    end
   end
   object plData: TPanel
     Left = 0
-    Height = 616
-    Top = 64
-    Width = 1143
+    Height = 604
+    Top = 72
+    Width = 1226
     Align = alClient
-    ClientHeight = 616
-    ClientWidth = 1143
+    ClientHeight = 604
+    ClientWidth = 1226
     TabOrder = 1
+    OnResize = plDataResize
     object gbPolar: TGroupBox
-      Left = 608
-      Height = 569
+      Left = 600
+      Height = 568
       Top = 16
-      Width = 513
+      Width = 604
       Anchors = [akTop, akLeft, akRight, akBottom]
       Caption = 'gbPolar'
-      ClientHeight = 552
-      ClientWidth = 511
+      ClientHeight = 546
+      ClientWidth = 600
       TabOrder = 0
       object SatPolar: TChart
         Left = 0
-        Height = 552
+        Height = 546
         Top = 0
-        Width = 511
+        Width = 600
+        AllowPanning = False
         AxisList = <        
           item
             Marks.LabelBrush.Style = bsClear
@@ -139,6 +165,7 @@ object Form1: TForm1
         )
         OnAfterDrawBackWall = SatPolarAfterDrawBackWall
         Align = alClient
+        DoubleBuffered = True
         object SatPolarSeries: TPolarSeries
           Legend.Visible = False
           LinePen.Color = clDefault
@@ -153,41 +180,45 @@ object Form1: TForm1
       Height = 240
       Top = 16
       Width = 568
-      Anchors = [akTop, akLeft, akBottom]
       Caption = 'gbData'
-      ClientHeight = 223
-      ClientWidth = 566
+      ClientHeight = 218
+      ClientWidth = 564
       TabOrder = 1
       object gridGPSdata: TStringGrid
         Left = 0
-        Height = 223
+        Height = 218
         Top = 0
-        Width = 566
+        Width = 564
         Align = alClient
+        AlternateColor = clDefault
         ColCount = 2
+        DoubleBuffered = True
         FixedRows = 0
+        ParentDoubleBuffered = False
+        PopupMenu = pmnData
         TabOrder = 0
+        OnHeaderClick = gridGPSdataHeaderClick
         ColWidths = (
-          343
-          245
+          242
+          274
         )
       end
     end
     object gbSatSNR: TGroupBox
       Left = 16
-      Height = 304
-      Top = 280
+      Height = 312
+      Top = 272
       Width = 568
-      Anchors = [akLeft, akBottom]
       Caption = 'gbSatSNR'
-      ClientHeight = 287
-      ClientWidth = 566
+      ClientHeight = 290
+      ClientWidth = 564
       TabOrder = 2
       object ChartSatSNR: TChart
         Left = 0
-        Height = 287
+        Height = 290
         Top = 0
-        Width = 566
+        Width = 564
+        AllowPanning = False
         AxisList = <        
           item
             Marks.LabelBrush.Style = bsClear
@@ -207,27 +238,75 @@ object Form1: TForm1
           'TAChart'
         )
         Align = alClient
+        DoubleBuffered = True
+        PopupMenu = pmnSatSNR
         object BarSatSNR: TBarSeries
           BarBrush.Color = clRed
         end
       end
     end
+  end
+  object Splitter1: TSplitter
+    Cursor = crVSplit
+    Left = 0
+    Height = 20
+    Top = 676
+    Width = 1226
+    Align = alBottom
+    ResizeAnchor = akBottom
+  end
+  object PanelChart: TPanel
+    Left = 0
+    Height = 163
+    Top = 696
+    Width = 1226
+    Align = alBottom
+    ClientHeight = 163
+    ClientWidth = 1226
+    TabOrder = 3
     object StatusBar: TStatusBar
       Left = 1
-      Height = 18
-      Top = 597
-      Width = 1141
+      Height = 23
+      Top = 139
+      Width = 1224
       Panels = <      
         item
-          Width = 100
+          Width = 50
         end      
         item
-          Width = 100
+          Width = 50
         end      
         item
           Width = 50
         end>
       SimplePanel = False
+    end
+    object ChartData: TChart
+      Left = 1
+      Height = 138
+      Top = 1
+      Width = 1224
+      AllowPanning = False
+      AxisList = <      
+        item
+          Marks.LabelBrush.Style = bsClear
+          Minors = <>
+          Title.LabelFont.Orientation = 900
+          Title.LabelBrush.Style = bsClear
+        end      
+        item
+          Alignment = calBottom
+          Marks.LabelBrush.Style = bsClear
+          Minors = <>
+          Title.LabelBrush.Style = bsClear
+        end>
+      Title.Text.Strings = (
+        'TAChart'
+      )
+      Align = alClient
+      DoubleBuffered = True
+      object ChartDataLineSeries1: TLineSeries
+      end
     end
   end
   object OpenDialog: TOpenDialog
@@ -268,14 +347,17 @@ object Form1: TForm1
     object actSaveGrid: TAction
       Caption = 'actSaveGrid'
       ImageIndex = 5
+      OnExecute = actSaveGridExecute
     end
     object actSaveChart: TAction
       Caption = 'actSaveChart'
       ImageIndex = 5
+      OnExecute = actSaveChartExecute
     end
     object actAbout: TAction
       Caption = 'actAbout'
       ImageIndex = 6
+      OnExecute = actAboutExecute
     end
   end
   object ImageList1: TImageList
@@ -337,11 +419,79 @@ object Form1: TForm1
     }
   end
   object SatSNRBarSource: TListChartSource
-    Left = 507
+    Left = 512
     Top = 216
   end
   object SatPolarSource: TListChartSource
-    Left = 504
+    Left = 512
+    Top = 160
+  end
+  object XMLPropStorage1: TXMLPropStorage
+    StoredValues = <>
+    Left = 432
+    Top = 160
+  end
+  object pmnSatSNR: TPopupMenu
+    Left = 72
+    Top = 400
+    object mnSaveSatSNR: TMenuItem
+      Action = actSaveChart
+    end
+  end
+  object pmnData: TPopupMenu
+    Left = 64
+    Top = 256
+    object mnSaveGrid: TMenuItem
+      Action = actSaveGrid
+    end
+    object mnSaveCSV: TMenuItem
+      Action = actSaveCSV
+    end
+  end
+  object SaveDialog: TSaveDialog
+    Left = 367
+    Top = 280
+  end
+  object MainMenu1: TMainMenu
+    Left = 368
+    Top = 216
+    object mnFile: TMenuItem
+      Caption = 'mnFile'
+      object mnOpen: TMenuItem
+        Action = actLoadFile
+      end
+      object Separator1: TMenuItem
+        Caption = '-'
+      end
+      object mnMainSaveGrid: TMenuItem
+        Action = actSaveGrid
+      end
+      object mnMainSaveChart: TMenuItem
+        Action = actSaveChart
+      end
+      object Separator2: TMenuItem
+        Caption = '-'
+      end
+      object mnMainSaveCSV: TMenuItem
+        Action = actSaveCSV
+      end
+      object Separator3: TMenuItem
+        Caption = '-'
+      end
+      object mnClose: TMenuItem
+        Action = actClose
+      end
+    end
+    object mnInfo: TMenuItem
+      Caption = 'mnInfo'
+      object mnAbout: TMenuItem
+        Action = actAbout
+      end
+    end
+  end
+  object DateTimeIntervalDataSource: TDateTimeIntervalChartSource
+    Params.NiceSteps = '10'
+    Left = 367
     Top = 160
   end
 end
