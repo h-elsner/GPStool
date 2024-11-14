@@ -193,6 +193,7 @@ begin
   StatusBar.Hint:=hntStatusbar;
   OpenDialog.Title:=capOpenDialog;
   lblTime.Caption:=capTime;
+  lblTime.Hint:=hntTime;
 
   WriteGridGPSdataHeader;
   PrepareSatSNRBarChart;

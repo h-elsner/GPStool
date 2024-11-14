@@ -1,12 +1,12 @@
 object Form1: TForm1
   Left = 1823
-  Height = 859
+  Height = 850
   Top = 141
-  Width = 1226
+  Width = 1150
   AllowDropFiles = True
   Caption = 'Form1'
-  ClientHeight = 859
-  ClientWidth = 1226
+  ClientHeight = 850
+  ClientWidth = 1150
   Constraints.MinHeight = 850
   Constraints.MinWidth = 1150
   Menu = MainMenu1
@@ -22,13 +22,13 @@ object Form1: TForm1
     Left = 0
     Height = 72
     Top = 0
-    Width = 1226
+    Width = 1150
     Align = alTop
     ClientHeight = 72
-    ClientWidth = 1226
+    ClientWidth = 1150
     TabOrder = 0
     object btnClose: TBitBtn
-      Left = 1101
+      Left = 1025
       Height = 30
       Top = 16
       Width = 100
@@ -39,18 +39,18 @@ object Form1: TForm1
       TabOrder = 1
     end
     object lblTime: TLabel
-      Left = 939
-      Height = 17
-      Top = 27
-      Width = 28
+      Left = 976
+      Height = 16
+      Top = 23
+      Width = 30
       Anchors = [akTop, akRight]
       Caption = 'Time'
     end
     object cbSaveCSV: TCheckBox
       Left = 264
-      Height = 21
+      Height = 23
       Top = 23
-      Width = 82
+      Width = 90
       Caption = 'cbSaveCSV'
       TabOrder = 2
       OnChange = cbSaveCSVChange
@@ -108,44 +108,44 @@ object Form1: TForm1
       Left = 1
       Height = 12
       Top = 59
-      Width = 1224
+      Width = 1148
       Align = alBottom
       TabOrder = 4
     end
     object cbFast: TCheckBox
       Left = 544
-      Height = 21
+      Height = 23
       Top = 23
-      Width = 55
+      Width = 65
       Caption = 'cbFast'
       TabOrder = 5
     end
   end
   object plData: TPanel
     Left = 0
-    Height = 604
+    Height = 595
     Top = 72
-    Width = 1226
+    Width = 1150
     Align = alClient
-    ClientHeight = 604
-    ClientWidth = 1226
+    ClientHeight = 595
+    ClientWidth = 1150
     TabOrder = 1
     OnResize = plDataResize
     object gbPolar: TGroupBox
       Left = 600
-      Height = 568
+      Height = 559
       Top = 16
-      Width = 604
+      Width = 528
       Anchors = [akTop, akLeft, akRight, akBottom]
       Caption = 'gbPolar'
-      ClientHeight = 546
-      ClientWidth = 600
+      ClientHeight = 542
+      ClientWidth = 526
       TabOrder = 0
       object SatPolar: TChart
         Left = 0
-        Height = 546
+        Height = 542
         Top = 0
-        Width = 600
+        Width = 526
         AllowPanning = False
         AxisList = <        
           item
@@ -181,14 +181,14 @@ object Form1: TForm1
       Top = 16
       Width = 568
       Caption = 'gbData'
-      ClientHeight = 218
-      ClientWidth = 564
+      ClientHeight = 223
+      ClientWidth = 566
       TabOrder = 1
       object gridGPSdata: TStringGrid
         Left = 0
-        Height = 218
+        Height = 223
         Top = 0
-        Width = 564
+        Width = 566
         Align = alClient
         AlternateColor = clDefault
         ColCount = 2
@@ -210,14 +210,14 @@ object Form1: TForm1
       Top = 272
       Width = 568
       Caption = 'gbSatSNR'
-      ClientHeight = 290
-      ClientWidth = 564
+      ClientHeight = 295
+      ClientWidth = 566
       TabOrder = 2
       object ChartSatSNR: TChart
         Left = 0
-        Height = 290
+        Height = 295
         Top = 0
-        Width = 564
+        Width = 566
         AllowPanning = False
         AxisList = <        
           item
@@ -250,25 +250,25 @@ object Form1: TForm1
     Cursor = crVSplit
     Left = 0
     Height = 20
-    Top = 676
-    Width = 1226
+    Top = 667
+    Width = 1150
     Align = alBottom
     ResizeAnchor = akBottom
   end
   object PanelChart: TPanel
     Left = 0
     Height = 163
-    Top = 696
-    Width = 1226
+    Top = 687
+    Width = 1150
     Align = alBottom
     ClientHeight = 163
-    ClientWidth = 1226
+    ClientWidth = 1150
     TabOrder = 3
     object StatusBar: TStatusBar
       Left = 1
-      Height = 23
-      Top = 139
-      Width = 1224
+      Height = 18
+      Top = 144
+      Width = 1148
       Panels = <      
         item
           Width = 50
@@ -283,9 +283,9 @@ object Form1: TForm1
     end
     object ChartData: TChart
       Left = 1
-      Height = 138
+      Height = 143
       Top = 1
-      Width = 1224
+      Width = 1148
       AllowPanning = False
       AxisList = <      
         item

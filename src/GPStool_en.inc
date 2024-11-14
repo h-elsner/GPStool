@@ -16,6 +16,7 @@ resourcestring                                     {english}
   hntStatusBar='Messages checked; Messages used; File name';
   capOpenDialog='Open TLOG or H480 Sensor file...';
   capTime='Time';
+  hntTime='Date/time UTC from message SYSTEM_TIME (2)';
   capSaveCSV='Save as CSV file';
   hntSaveCSV='Automatically save GPS data as CSV file in the same folder as the input files are';
   capFast='Fast processing w/o GUI update';
