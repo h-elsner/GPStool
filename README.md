@@ -7,4 +7,4 @@ GPStool is a tool that decodes MAVlink messages (aka Sensor files) from Yuneec d
 **Usage**
 ---------
 Usage is simple: Just load a *.TLOG, *.LOG or Sensor_xxxxx.bin file. Depending on the delay the messages will be decoded and displayed slow or faster.
-The numeric result can be stored in a CSV file.
+The numeric result can be stored in a CSV file. You can drop a file from file manager to the tool to process it.
