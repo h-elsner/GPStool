@@ -23,9 +23,9 @@ interface
 
 uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ActnList, StdCtrls,
-  ExtCtrls, Buttons, ComCtrls, Grids, XMLPropStorage, Menus,
+  ExtCtrls, Buttons, ComCtrls, Grids, XMLPropStorage, Menus, math,
   FileUtil, DateUtils, TAGraph, TATypes, TASeries, TAChartUtils, TAGeometry,
-  TARadialSeries, TASources, TAIntervalSources, mav_gps;
+  TARadialSeries, TASources, TAIntervalSources, mav_def, mav_msg;
 
 const
   clSatUsed=clLime;
@@ -38,9 +38,11 @@ const
   tab2='  ';
   sep=';';                                               {CSV separator}
   digits=['0'..'9', '.', ',', ':'];
+//  Limit the message ID number for validation regarding the current use case of the analysis
+  MaxMsgID=266;
 
   meinname='Helmut Elsner';
-  appVersion='V0.2 build 2024-11-14';
+  appVersion='V0.3 build 2024-11-16';
 
 type
 
@@ -67,6 +69,7 @@ type
     DateTimeIntervalDataSource: TDateTimeIntervalChartSource;
     lblTime: TLabel;
     MainMenu1: TMainMenu;
+    StatusTextList: TMemo;
     mnClose: TMenuItem;
     barStream: TProgressBar;
     PanelChart: TPanel;
@@ -155,6 +158,7 @@ var
   NumMsgUsed, NumMsgTotal: integer;
   csvlist: TStringList;
   inputstream: TMemoryStream;
+  gpsPresent, SensorsHealthy: boolean;
 
 {$I GPStool_en.inc}
 
@@ -197,10 +201,13 @@ begin
 
   WriteGridGPSdataHeader;
   PrepareSatSNRBarChart;
-  BarSatSNR.Clear;
   PrepareSatPolarDiagram;
   PreparePolarAxes(SatPolar, 90);
+  PrepareChartData(0);
+  BarSatSNR.Clear;
   SatPolarSeries.Clear;
+  ChartDataLineSeries1.Clear;
+  StatusTextList.Clear;
   barSleepTime.Hint:=hntSleepTime;
 
   barSleepTime.Position:=100;
@@ -208,6 +215,8 @@ begin
   gridGPSdata.AlternateColor:=clTabs;
 
   stopping:=false;
+  gpsPresent:=true;
+  SensorsHealthy:=true;
   NumMsgUsed:=0;
   NumMsgTotal:=0;
 
@@ -243,10 +252,13 @@ begin
 end;
 
 procedure TForm1.plDataResize(Sender: TObject);
+const
+  listhight=520;
+
 begin
   gbData.Height:=(plData.Height div 2)-24;
-  if gbData.Height>=440 then
-    gbData.Height:=440;                                  {Limit seizing of data table}
+  if gbData.Height>=listhight then
+    gbData.Height:=listhight;                            {Limit seizing of data table}
   gbSatSNR.Top:=gbData.Top+gbData.Height+12;
   gbSatSNR.Height:=plData.Height-gbData.Height-54;
 end;
@@ -275,31 +287,33 @@ procedure TForm1.WriteGridGPSdataHeader;
 begin
   gridGPSdata.BeginUpdate;
   try
-    gridGPSdata.RowCount:=23;
-    gridGPSdata.Cells[0, 0]:='Time since boot';
-    gridGPSdata.Cells[0, 1]:='SYSTEM TIME UTC';
-    gridGPSdata.Cells[0, 2]:='Time UTC per Message';
-    gridGPSdata.Cells[0, 3]:='Latitude (WGS84 EGM96 ellipsoid)';
-    gridGPSdata.Cells[0, 4]:='Longitude (WGS84 EGM96 ellipsoid)';
-    gridGPSdata.Cells[0, 5]:='Altitude (MSL)';
-    gridGPSdata.Cells[0, 6]:='Altitude (above WGS84 EGM96 ellipsoid)';
-    gridGPSdata.Cells[0, 7]:='Altitude above home';
-    gridGPSdata.Cells[0, 8]:='GPS ground speed';
-    gridGPSdata.Cells[0, 9]:='Ground X Speed';
-    gridGPSdata.Cells[0, 10]:='Ground Y Speed';
-    gridGPSdata.Cells[0, 11]:='Ground Z Speed';
-    gridGPSdata.Cells[0, 12]:='Course over ground';
-    gridGPSdata.Cells[0, 13]:='Heading';
-    gridGPSdata.Cells[0, 14]:='Yaw in earth frame from north';
-    gridGPSdata.Cells[0, 15]:='Number of satellites visible';
-    gridGPSdata.Cells[0, 16]:='GPS fix type';
-    gridGPSdata.Cells[0, 17]:='GPS HDOP';
-    gridGPSdata.Cells[0, 18]:='GPS VDOP';
-    gridGPSdata.Cells[0, 19]:='Position uncertainty';
-    gridGPSdata.Cells[0, 20]:='Altitude uncertainty';
-    gridGPSdata.Cells[0, 21]:='Speed uncertainty';
-    gridGPSdata.Cells[0, 22]:='Heading / track uncertainty';
-  finally
+    gridGPSdata.RowCount:=25;
+    gridGPSdata.Cells[0, 0]:='Time since boot';                    {2, 24, 33}
+    gridGPSdata.Cells[0, 1]:='SYSTEM TIME UTC';                    {2}
+    gridGPSdata.Cells[0, 2]:='Time UTC per Message';               {all $FD messages}
+    gridGPSdata.Cells[0, 3]:='Latitude (WGS84 EGM96 ellipsoid)';   {24, 33}
+    gridGPSdata.Cells[0, 4]:='Longitude (WGS84 EGM96 ellipsoid)';  {24, 33}
+    gridGPSdata.Cells[0, 5]:='Altitude (MSL)';                     {24, 33}
+    gridGPSdata.Cells[0, 6]:='Altitude (above WGS84 EGM96 ellipsoid)'; {24}
+    gridGPSdata.Cells[0, 7]:='Altitude above home';                {33}
+    gridGPSdata.Cells[0, 8]:='GPS ground speed';                   {33}
+    gridGPSdata.Cells[0, 9]:='Ground X Speed';                     {33}
+    gridGPSdata.Cells[0, 10]:='Ground Y Speed';                    {33}
+    gridGPSdata.Cells[0, 11]:='Ground Z Speed';                    {33}
+    gridGPSdata.Cells[0, 12]:='Course over ground';                {24}
+    gridGPSdata.Cells[0, 13]:='Heading';                           {33}
+    gridGPSdata.Cells[0, 14]:='Yaw in earth frame from north';     {24}
+    gridGPSdata.Cells[0, 15]:='Number of satellites visible';      {24, 25}
+    gridGPSdata.Cells[0, 16]:='GPS fix type';                      {24}
+    gridGPSdata.Cells[0, 17]:='GPS HDOP';                          {24}
+    gridGPSdata.Cells[0, 18]:='GPS VDOP';                          {24}
+    gridGPSdata.Cells[0, 19]:='Position uncertainty';              {24}
+    gridGPSdata.Cells[0, 20]:='Altitude uncertainty';              {24}
+    gridGPSdata.Cells[0, 21]:='Speed uncertainty';                 {24}
+    gridGPSdata.Cells[0, 22]:='Heading / track uncertainty';       {24}
+    gridGPSdata.Cells[0, 23]:='Battery voltage';                   {1}
+    gridGPSdata.Cells[0, 24]:='Usage of the mainloop time';        {1}
+  finally                     {Sad: Yuneec does not deliver data in 25}
     gridGPSdata.EndUpdate;
   end;
 end;
@@ -312,6 +326,8 @@ begin
     8..11, 21: result:=' [m/s]';
     19, 20: result:=' [cm]';
     12..14, 22: result:=' [°]';
+    23: result:=' [V]';
+    24: result:=' [%]';
   end;
 end;
 
@@ -353,6 +369,7 @@ begin
   ResetGlobalVariables;
   BarSatSNR.Clear;
   SatPolarSeries.Clear;
+  ChartDataLineSeries1.Clear;
   ClearPositioningData;
 
   if FileSize(OpenDialog.FileName)<500 then begin
@@ -482,87 +499,45 @@ end;
 ///////////////////////////// Processing ///////////////////////////////////////
 
 function TForm1.DecodeOneSensorMessage(const msg: TMAVmessage; offset: byte; var data: TGPSdata): boolean;
+var
+  stext: string;
 
-  procedure SYS_TIME;
-  begin
-    result:=true;
-    data.timeUTC:=UnixToDateTime(MavGetUInt64(msg, offset) div 1000000);  {us --> s};
-    if msg.msglength=10 then
-      data.boottime:=MilliSecondsToDateTime(MavGetUInt32(msg, offset+8) and $FFFF)
-    else
-      if msg.msglength=11 then
-        data.boottime:=MilliSecondsToDateTime(MavGetUInt32(msg, offset+8) and $FFFFFF)
-      else
-        data.boottime:=MilliSecondsToDateTime(MavGetUInt32(msg, offset+8));
-  end;
-
-  procedure GPS_RAW_INT;
-  begin
-    result:=true;
-    data.boottime:=MavGetUInt64(msg, offset)/MilliSecondsPerDay/1000;
-    data.lat:=MavGetInt32(msg, offset+8);
-    data.lon:=MavGetInt32(msg, offset+12);
-    data.altMSL:=MavGetInt32(msg, offset+16);
-    data.eph:=MavGetUInt16(msg, offset+20);
-    data.epv:=MavGetUInt16(msg, offset+22);
-    data.vel:=MavGetUInt16(msg, offset+24);
-    data.cog:=MavGetUInt16(msg, offset+26);
-    data.fix_type:=msg.msgbytes[offset+28];
-    data.sats_visible:=msg.msgbytes[offset+29];
-    data.alt_ellipsoid:=MavGetInt32(msg, offset+30);
-    data.h_acc:=MavGetUInt32(msg, offset+34);
-    data.v_acc:=MavGetUInt32(msg, offset+38);
-    data.vel_acc:=MavGetUInt32(msg, offset+42);
-
-//  Yuneec specific
-    data.hdg_acc:=MavGetUInt16(msg, offset+46);
-    data.yaw:=msg.msgbytes[offset+48];
-  end;
-
-// On each message is a trailer after the CRC with a time stamp 8 bytes UTG in µs
-
-  procedure GPS_STATUS;                                  {Possibly never used by Yuneec or empty}
-  var
-    i: integer;
-
-  begin
-    result:=true;
-    data.sats_visible:=msg.msgbytes[offset];
-    for i:=0 to MAVsatCount do begin
-      data.sat_prn[i]:=msg.msgbytes[i+offset+1];
-      data.sat_used[i]:=msg.msgbytes[i+offset+21];
-      data.sat_elevation[i]:=msg.msgbytes[i+offset+41];
-      data.sat_azimuth[i]:=msg.msgbytes[i+offset+61];
-      data.sat_snr[i]:=msg.msgbytes[i+offset+81];
-    end;
-    sleep(barSleepTime.Position);
-  end;
-
-  procedure GLOBAL_POSITION_INT;
-  begin
-    result:=true;
-    data.boottime:=MavGetUInt32(msg, offset)/MilliSecondsPerDay;
-    data.lat:=MavGetInt32(msg, offset+4);
-    data.lon:=MavGetInt32(msg, offset+8);
-    data.altMSL:=MavGetInt32(msg, offset+12);
-    data.alt_rel:=MavGetInt32(msg, offset+16);
-    data.vx:=MavGetInt16(msg, offset+20);
-    data.vy:=MavGetInt16(msg, offset+22);
-    data.vz:=MavGetInt16(msg, offset+24);
-    data.hdg:=MavGetUInt16(msg, offset+26);
-  end;
+const
+  textsep='|';
 
 begin
-  result:=false;
-  data.sats_visible:=max8;
-  if btnLoad.Tag=MagicFD then                            {Trailing time stamp for all FD messages}
+  result:=true;
+  data.gps_present:=true;
+  SensorsHealthy:=true;
+  data.sats_visible:=max8;                               {If unknown, set to UINT8_MAX}
+
+// Yuneec: On each $FD message is a trailer after the CRC with a time stamp 8 bytes UTG in µs
+  if btnLoad.Tag=MagicFD then
     data.yuneectime:=UnixToDateTime(YuneecTimeStampInSeconds(msg));
+
   case msg.msgid of
-     2: SYS_TIME;
-    24: GPS_RAW_INT;
-    25: GPS_STATUS;
-    33: GLOBAL_POSITION_INT;
+     1: SYS_STATUS(msg, offset, data);
+     2: SYS_TIME(msg, offset, data);
+    24: GPS_RAW_INT(msg, offset, data);
+    25: if msg.msglength>1 then begin
+          GPS_STATUS(msg, offset, data);
+          sleep(barSleepTime.Position);
+        end;
+//    32: LOCAL_POSITION_NED(msg, offset, floatdata);
+    33: GLOBAL_POSITION_INT(msg, offset, data);
+    253: begin
+           stext:=STATUSTEXT(msg, offset, textsep);
+           StatusTextList.Lines.Add(FormatDateTime(timezzz, data.boottime)+tab2+
+                                    stext.Split([textsep])[1]+tab2+'['+
+                                    stext.Split([textsep])[0]+']');
+         end;
+  else
+    result:=false;                                       {Messages not decoded}
   end;
+  if not data.gps_present then
+    gpsPresent:=false;
+  if not data.sensors_OK then
+    SensorsHealthy:=false;
 end;
 
 procedure TForm1.ProcessMAVFile(const UsedMagic: byte);
@@ -594,27 +569,30 @@ var
     end;
   end;
 
-  function CheckMessage: boolean;
+  function CheckMessage: boolean;      {ToDo depending on use case}
   begin
     result:=false;
     case UsedMagic of
       MagicFD: begin
-        result:=msg.msgid>1;
+        result:=(msg.msgid<MaxMsgID) and (msg.msgbytes[2]=0) and (msg.msgbytes[3]=0);
 
       end;
       MagicBC: begin
-        result:=msg.msgid>1;
+        result:=(msg.msgid>0);
 
       end;
     end;
+    msg.valid:=result;
   end;
 
 begin
   ClearMAVmessage(msg);
   GPSdata_SetDefaultValues(data);
   if inputstream.Position=0 then begin
-    csvlist.Clear;
+    StatusTextList.Clear;
     WriteHeaderCSVlist;
+    gpsPresent:=true;
+    SensorsHealthy:=true;
   end;
   while inputstream.Position<inputstream.Size-100 do begin
     repeat                                               {Try to find next UsedMagic in stream}
@@ -633,7 +611,8 @@ begin
       if DecodeOneSensorMessage(msg, offset, data) then begin
         inc(NumMsgUsed);
         if data.boottime>0 then begin
-          if (data.sats_visible<>max8) and (data.sats_visible<>0) then begin
+          if (data.sats_visible<max8) and
+             (data.sats_visible>0) and msg.valid then begin
             if (not cbFast.Checked) and (data.fix_type>0) then begin
               CreateSatPolarDiagram(data);
               CreateSatSNRBarChart(data);
@@ -655,6 +634,11 @@ begin
     CreateSatPolarDiagram(data);
     CreateSatSNRBarChart(data);
   end;
+  if not gpsPresent then
+    lblTime.Caption:=rsGPSmissing
+  else
+    if not SensorsHealthy then
+      lblTime.Caption:=errSensorsNotHealthy;
   inputstream.Position:=0;
   barStream.Position:=barStream.Max;
 end;
@@ -766,6 +750,11 @@ begin
 //  From GPS_RAW_INT (24)
       gridGPSdata.Cells[1, 15]:=IntToStr(sats.sats_visible);
       gridGPSdata.Cells[1, 16]:=FixTypeToStr(sats.fix_type);
+
+//  From SYS_STATUS (1)
+      gridGPSdata.Cells[1, 23]:=FormatMilliVolt(sats.voltage);
+      gridGPSdata.Cells[1, 24]:=FormatDeziProcent(sats.load);
+
     finally
       gridGPSdata.EndUpdate;
     end;
@@ -794,11 +783,13 @@ var
   i: integer;
 
 begin
-  s:=ValueFromTable;
+  result:=NaN;                                           {TAChart skips NaN}
+  s:=trim(ValueFromTable);
   for i:=length(s) downto 1 do
     if not (s[i] in digits) then
       delete(s, i, 1);
-  result:=StrToFloatDef(s, 0);
+  if s<>'' then
+    result:=StrToFloatDef(s, 0);
 end;
 
 procedure TForm1.CreateChartDataLineSeries(const dataindex: integer);
@@ -972,11 +963,13 @@ procedure TForm1.PrepareChartData(const dataindex: integer);
 begin
   with ChartData do begin
     Title.Visible:=false;
-    LeftAxis.Title.Caption:=gridGPSdata.Cells[0, dataindex]+IndexToMeasurementUnit(dataindex);
-    LeftAxis.Title.Visible:=true;
     BottomAxis.Marks.Source:=DateTimeIntervalDataSource;
     BottomAxis.Marks.Style:=smsLabel;
     BottomAxis.Marks.Format:='%2:s';
+    if dataindex>2 then begin
+      LeftAxis.Title.Caption:=gridGPSdata.Cells[0, dataindex]+IndexToMeasurementUnit(dataindex);
+      LeftAxis.Title.Visible:=true;
+    end;
   end;
   DateTimeIntervalDataSource.DateTimeFormat:='nn:ss';
   DateTimeIntervalDataSource.Params.NiceSteps:='5|10';   {x-axis labels wider steps}

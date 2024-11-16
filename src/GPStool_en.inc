@@ -34,9 +34,11 @@ resourcestring                                     {english}
   errInvalidFile='Invalid file';
   errSmallFile='File too small';
   errEmptyFile='File is empty, nothing saved';
+  errSensorsNotHealthy='Sensors not healthy!';
 
   rsInUse='satellites in use';
   rsVisible='satellites visible';
   rsSaved='saved in working directory';
+  rsGPSmissing='Compass and/or GPS not present!';
 
 
