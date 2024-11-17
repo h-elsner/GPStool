@@ -235,6 +235,8 @@ end;
 
 procedure TForm1.FormDropFiles(Sender: TObject; const FileNames: array of string);
 begin
+  OpenDialog.FileName:=FileNames[0];
+  Application.BringToFront;
   DoLoadFile(FileNames[0]);
 end;
 
@@ -253,14 +255,14 @@ end;
 
 procedure TForm1.plDataResize(Sender: TObject);
 const
-  listhight=520;
+  listhight=640;
 
 begin
-  gbData.Height:=(plData.Height div 2)-24;
+  gbData.Height:=(plData.Height div 2)-12;
   if gbData.Height>=listhight then
     gbData.Height:=listhight;                            {Limit seizing of data table}
-  gbSatSNR.Top:=gbData.Top+gbData.Height+12;
-  gbSatSNR.Height:=plData.Height-gbData.Height-54;
+  gbSatSNR.Top:=gbData.Top+gbData.Height+8;
+  gbSatSNR.Height:=plData.Height-gbData.Height-40;
 end;
 
 procedure TForm1.cbSaveCSVChange(Sender: TObject);
@@ -372,12 +374,12 @@ begin
   ChartDataLineSeries1.Clear;
   ClearPositioningData;
 
-  if FileSize(OpenDialog.FileName)<500 then begin
+  if FileSize(aFileName)<500 then begin
     SetForInvalidFile(errSmallFile);
     exit;
   end;
 
-  PureFileName:=ExtractFileName(OpenDialog.FileName);
+  PureFileName:=ExtractFileName(aFileName);
   if (pos('.tlog', LowerCase(PureFileName))>1) or
      (pos('.log', LowerCase(PureFileName))>1)then begin
     SetForValidFile(aFileName);
@@ -391,7 +393,7 @@ begin
     end;
   end;
 
-  inputstream.LoadFromFile(OpenDialog.FileName);
+  inputstream.LoadFromFile(aFileName);
   barStream.Max:=inputstream.Size-1;
   ProcessMAVfile(btnLoad.Tag);
 
@@ -803,10 +805,12 @@ begin
     ChartData.DisableRedrawing;
     ChartDataLineSeries1.Clear;
     try
-      for i:=1 to csvlist.Count-1 do begin
-        value:=GetFloatFromTable(csvlist[i].Split([sep])[dataindex]);
-        timestamp:=ScanDateTime(timezzz, csvlist[i].Split([sep])[0]);
-        ChartDataLineSeries1.AddXY(timestamp, value);
+       for i:=1 to csvlist.Count-1 do begin
+        if trim(csvlist[i].Split([sep])[0])<>'' then begin
+          value:=GetFloatFromTable(csvlist[i].Split([sep])[dataindex]);
+          timestamp:=ScanDateTime(timezzz, csvlist[i].Split([sep])[0]);
+          ChartDataLineSeries1.AddXY(timestamp, value);
+        end;
       end;
     finally
       ChartData.EnableRedrawing;
