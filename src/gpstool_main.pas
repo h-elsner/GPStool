@@ -1,6 +1,4 @@
 (*
-btnLoad.Tag misused for file type. 0 for invalid file or file magic for known file types
-
 
 References
 ----------
@@ -147,7 +145,7 @@ type
     procedure SetForInvalidFile(ErrorMessage: string);
   public
     function  DecodeOneSensorMessage(const msg: TMAVmessage; offset: byte; var data: TGPSdata): boolean;
-    procedure ProcessMAVFile(const UsedMagic: byte);
+    procedure ProcessMAVFile(const FormatType: byte);
     procedure PreparePolarAxes(AChart: TChart; AMax: Double);
     procedure DrawPolarAxes(AChart: TChart; AMax, ADelta: Double; MeasurementUnit: string);
   end;
@@ -156,6 +154,7 @@ var
   Form1: TForm1;
   stopping: boolean;
   NumMsgUsed, NumMsgTotal: integer;
+  MsgFormatType: byte;
   csvlist: TStringList;
   inputstream: TMemoryStream;
   gpsPresent, SensorsHealthy: boolean;
@@ -219,6 +218,7 @@ begin
   SensorsHealthy:=true;
   NumMsgUsed:=0;
   NumMsgTotal:=0;
+  MsgFormatType:=0;
 
   csvlist:=TStringList.Create;
   inputstream:=TMemoryStream.Create;
@@ -227,6 +227,7 @@ end;
 
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
+  Screen.Cursor:=crDefault;
   if assigned(csvlist) then
     csvlist.free;
   if assigned(inputstream) then
@@ -350,6 +351,7 @@ end;
 
 procedure TForm1.SetForValidFile(aFileName: string);
 begin
+  StatusBar.Panels[2].Text:=MsgFormatTypeToStr(MsgFormatType);
   InfoMessageToStatusbar(aFileName);
   Caption:=capApplication+tab2+ExtractFileName(aFileName);
 end;
@@ -362,17 +364,49 @@ begin
   InfoMessageToStatusbar(ErrorMessage);
 end;
 
+{   0: rInvalid;
+    1: MAVlink V2 common            ToDo
+    2: Yuneec H520 TLOG
+    3: Yuneec Mantis LOG
+    4: Yuneec Mantis FlyLog
+    5: Yuneec HPlus Sensor
+    6: Yuneec H480 Sensor
+}
+
+function GetMsgFormatType(fn: string): byte;
+var
+  shortfn: string;
+
+begin
+  result:=0;                                              {default: Invalid file}
+  shortfn:=LowerCase(ExtractFileName(fn));
+  if ExtractFileExt(shortfn)<>'.csv' then begin
+    if (pos('20', shortfn)=1) then begin
+      if (pos('.tlog', shortfn)>18) then  exit(2);
+    end;
+    if pos('sensor_', shortfn)=1 then begin
+      if pos('.bin', shortfn)=13 then exit(6);
+      if pos('.txt', shortfn)=13 then exit(5);
+      if pos('.txt', shortfn)>13 then exit(4);
+    end;
+    if (pos('yuneec_20', shortfn)=1) and
+       (pos('.log', shortfn)>20) then exit(3);
+    if pos('flylog_20', shortfn)=1 then exit(4);
+  end;
+end;
+
 procedure TForm1.DoLoadFile(aFileName: string);
 var
   PureFileName: string;
 
 begin
-  btnLoad.Tag:=0;                                       {Invalid file; Tag misused for file type}
+  StatusBar.Panels[2].Text:='';
   ResetGlobalVariables;
   BarSatSNR.Clear;
   SatPolarSeries.Clear;
   ChartDataLineSeries1.Clear;
   ClearPositioningData;
+  Application.ProcessMessages;
 
   if FileSize(aFileName)<500 then begin
     SetForInvalidFile(errSmallFile);
@@ -380,27 +414,22 @@ begin
   end;
 
   PureFileName:=ExtractFileName(aFileName);
-  if (pos('.tlog', LowerCase(PureFileName))>1) or
-     (pos('.log', LowerCase(PureFileName))>1)then begin
+  MsgFormatType:=GetMsgFormatType(aFileName);
+  if MsgFormatType>1 then begin
+    Screen.Cursor:=crHourGlass;
     SetForValidFile(aFileName);
-    btnLoad.Tag:=MagicFD;
-  end else begin
-    if pos('Sensor_', PureFileName)=1 then begin
-      SetForValidFile(aFileName);
-      btnLoad.Tag:=MagicBC;
-    end else begin
-      SetForInvalidFile(errInvalidFile);
-    end;
-  end;
+    inputstream.LoadFromFile(aFileName);
+    barStream.Max:=inputstream.Size-1;
+    ProcessMAVfile(MsgFormatType);
 
-  inputstream.LoadFromFile(aFileName);
-  barStream.Max:=inputstream.Size-1;
-  ProcessMAVfile(btnLoad.Tag);
+    StatusBar.Panels[0].Text:=IntToStr(NumMsgTotal);
+    StatusBar.Panels[1].Text:=IntToStr(NumMsgUsed);
+    if cbSaveCSV.Checked then
+      actSaveCSVExecute(self);
+    Screen.Cursor:=crDefault;
 
-  StatusBar.Panels[0].Text:=IntToStr(NumMsgTotal);
-  StatusBar.Panels[1].Text:=IntToStr(NumMsgUsed);
-  if cbSaveCSV.Checked then
-    actSaveCSVExecute(self);
+  end else
+    SetForInvalidFile(errInvalidFile);
 end;
 
 /////////////////////////////// Actions ////////////////////////////////////////
@@ -420,14 +449,14 @@ end;
 
 procedure TForm1.InfoMessageToStatusbar(info: string);
 begin
-  StatusBar.Panels[2].Text:=info;
+  StatusBar.Panels[3].Text:=info;
 end;
 
 procedure TForm1.actContinueExecute(Sender: TObject);
 begin
   stopping:=false;
-  if btnLoad.Tag>0 then begin                            {Means, there was is a valid file type in progress}
-    ProcessMAVfile(btnLoad.Tag);
+  if MsgFormatType>1 then begin                            {Means, there was is a valid file type in progress}
+    ProcessMAVfile(MsgFormatType);
   end;
 end;
 
@@ -514,8 +543,9 @@ begin
   data.sats_visible:=max8;                               {If unknown, set to UINT8_MAX}
 
 // Yuneec: On each $FD message is a trailer after the CRC with a time stamp 8 bytes UTG in µs
-  if btnLoad.Tag=MagicFD then
+  if (msg.msgformat<6) and (msg.msgformat>1) then begin
     data.yuneectime:=UnixToDateTime(YuneecTimeStampInSeconds(msg));
+  end;
 
   case msg.msgid of
      1: SYS_STATUS(msg, offset, data);
@@ -542,31 +572,34 @@ begin
     SensorsHealthy:=false;
 end;
 
-procedure TForm1.ProcessMAVFile(const UsedMagic: byte);
+procedure TForm1.ProcessMAVFile(const FormatType: byte);
 var
   b, offset: byte;
   msg: TMAVmessage;
   data: TGPSdata;
+  UsedMagic: byte;
 
   procedure SetFixPartValuesForMsgType;
   begin
-    case UsedMagic of
-      MagicFD: begin
+    case FormatType of
+      2..5: begin
         // Read all message bytes from stream: Fix part + Payload + CRC + 8 bytes YuneeTimestamp [µs]
         inputstream.ReadBuffer(msg.msgbytes, msg.msglength+LengthFixPartFD+10);
         msg.sysid:=msg.msgbytes[5];
         msg.targetid:=msg.msgbytes[6];
         msg.msgid:=MavGetInt32(msg, 7) and $FFFFFF;      {MAVlink Message ID has 3 bytes}
         offset:=LengthFixPartFD;
+        UsedMagic:=$FD;
       end;
 
-      MagicBC: begin
+      6: begin
         // Read all message bytes from stream: Fix part + Payload + CRC
         inputstream.ReadBuffer(msg.msgbytes, msg.msglength+LengthFixPartBC+2);
         msg.sysid:=msg.msgbytes[3];
         msg.targetid:=msg.msgbytes[4];
         msg.msgid:=msg.msgbytes[5];
         offset:=LengthFixPartBC;
+        UsedMagic:=$BC;
       end;
     end;
   end;
@@ -574,12 +607,12 @@ var
   function CheckMessage: boolean;      {ToDo depending on use case}
   begin
     result:=false;
-    case UsedMagic of
-      MagicFD: begin
+    case FormatType of
+      1..5: begin
         result:=(msg.msgid<MaxMsgID) and (msg.msgbytes[2]=0) and (msg.msgbytes[3]=0);
 
       end;
-      MagicBC: begin
+      6: begin
         result:=(msg.msgid>0);
 
       end;
@@ -610,18 +643,16 @@ begin
     SetFixPartValuesForMsgType;
     inc(NumMsgTotal);
     if CheckMessage then begin
+      msg.msgformat:=MsgFormatType;
       if DecodeOneSensorMessage(msg, offset, data) then begin
         inc(NumMsgUsed);
-        if data.boottime>0 then begin
-          if (data.sats_visible<max8) and
-             (data.sats_visible>0) and msg.valid then begin
-            if (not cbFast.Checked) and (data.fix_type>0) then begin
-              CreateSatPolarDiagram(data);
-              CreateSatSNRBarChart(data);
-            end;
-            WriteGridGPSdataValues(data);
-            WriteGPSDataCSVlist(data);
+        if (data.boottime>0) and msg.valid then begin
+          if (not cbFast.Checked) and (data.fix_type>0) then begin
+            CreateSatPolarDiagram(data);
+            CreateSatSNRBarChart(data);
           end;
+          WriteGridGPSdataValues(data);
+          WriteGPSDataCSVlist(data);
         end;
         barStream.Position:=inputstream.Position;
         if not cbFast.Checked then
@@ -644,7 +675,6 @@ begin
   inputstream.Position:=0;
   barStream.Position:=barStream.Max;
 end;
-
 
 procedure TForm1.ClearPositioningData;
 var
@@ -723,7 +753,7 @@ begin
         gridGPSdata.Cells[1, 1]:=lblTime.Caption;
       end;
 
-      if btnLoad.Tag=MagicFD then
+      if (MsgFormatType>1) and (MsgFormatType<6) then
         gridGPSdata.Cells[1, 2]:=FormatDateTime(timefull, sats.yuneectime);
       if sats.fix_type>0 then begin
 //  From GPS_RAW_INT (24)
@@ -806,11 +836,11 @@ begin
     ChartDataLineSeries1.Clear;
     try
        for i:=1 to csvlist.Count-1 do begin
-        if trim(csvlist[i].Split([sep])[0])<>'' then begin
-          value:=GetFloatFromTable(csvlist[i].Split([sep])[dataindex]);
-          timestamp:=ScanDateTime(timezzz, csvlist[i].Split([sep])[0]);
-          ChartDataLineSeries1.AddXY(timestamp, value);
-        end;
+         if trim(csvlist[i].Split([sep])[0])<>'' then begin
+           value:=GetFloatFromTable(csvlist[i].Split([sep])[dataindex]);
+           timestamp:=ScanDateTime(timezzz, csvlist[i].Split([sep])[0]);
+           ChartDataLineSeries1.AddXY(timestamp, value);
+         end;
       end;
     finally
       ChartData.EnableRedrawing;

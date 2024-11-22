@@ -243,7 +243,10 @@ end;
 
 function YuneecTimeStampInSeconds(const msg: TMAVmessage): uint64;
 begin                                                    {+2 Time starts after! CRC}
-  result:=MavGetUInt64Reverse(msg, msg.msglength+LengthFixPartFD+2) div 1000000;
+  if (msg.msgformat=3) or (msg.msgformat=4) or (msg.msgformat=5) then
+    result:=MavGetUInt64(msg, msg.msglength+LengthFixPartFD+2) div 1000
+  else
+    result:=MavGetUInt64Reverse(msg, msg.msglength+LengthFixPartFD+2) div 1000000;
 end;
 
 end.

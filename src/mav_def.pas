@@ -26,6 +26,17 @@ const
   max16=65535;
   maxLenMAVmsg=280;
 
+{The ISO 8601 standard provides an extensive set of practical well-designed
+ formats for expressing date-time values as text. These formats are easy to
+ parse by machine as well as easy to read by humans across cultures.
+
+These include:
+    Date-only: 2019-01-23
+    Moment in UTC: 2019-01-23T12:34:56.123456Z
+    Moment with offset-from-UTC: 2019-01-23T18:04:56.123456+05:30
+    Week of week-based-year: 2019-W23
+    Ordinal date (1st to 366th day of year): 2019-234   }
+
   timefull='yyyy-mm-dd hh:nn:ss';
   timezzz='nn:ss.zzz';
   floatformat8='0.00000000';
@@ -35,13 +46,14 @@ const
 
   rsNotSpecified='Not specified';
   rsNotProvided='Not provided';
+  rsInvalid='Invalid';
   rsUnknown='Unkown';
 
 type
   TMAVmessage = record
     msglength, msgid: uint16;
     msgbytes: array[0..maxLenMAVmsg] of byte;
-    sysid, targetid: byte;
+    sysid, targetid, msgformat: byte;
     valid: boolean;
   end;
 
@@ -128,6 +140,8 @@ function FormatHdg(const hdg: uint32): shortstring;
 function FormatDeziProcent(const prz: uint16): shortstring;
 function FormatMilliVolt(const volt: uint16): shortstring;
 function FixTypeToStr(const fixtype: byte): shortstring;      {MAVlink GPS fix type to string}
+
+function MsgFormatTypeToStr(mft: byte): shortstring;
 
 function BatteryTypeToStr(const batttype: byte): shortstring;
 function BatteryFunctionToStr(const battfunc: byte): shortstring;
@@ -319,6 +333,20 @@ begin
     6:	Result:='RTK fixed, 3D position';
     7:	Result:='Static fixed, typically used for base stations';
     8:	Result:='PPP, 3D position';
+  end;
+end;
+
+function MsgFormatTypeToStr(mft: byte): shortstring;
+begin
+  result:='';
+  case mft of
+    0: result:=rsInvalid;
+    1: result:='MAVlink V2 common';        {ToDo}
+    2: result:='Yuneec H520 TLOG';
+    3: result:='Yuneec Mantis LOG';
+    4: result:='Yuneec Mantis FlyLog';
+    5: result:='Yuneec HPlus Sensor';
+    6: result:='Yuneec H480 Sensor';
   end;
 end;
 
