@@ -23,7 +23,7 @@ uses
   Classes, SysUtils, Forms, Controls, Graphics, Dialogs, ActnList, StdCtrls,
   ExtCtrls, Buttons, ComCtrls, Grids, XMLPropStorage, Menus, math,
   FileUtil, DateUtils, TAGraph, TATypes, TASeries, TAChartUtils, TAGeometry,
-  TARadialSeries, TASources, TAIntervalSources, mav_def, mav_msg;
+  TARadialSeries, TASources, TAIntervalSources, mav_def, mav_msg, Types;
 
 const
   clSatUsed=clLime;
@@ -64,13 +64,21 @@ type
     cbFast: TCheckBox;
     ChartData: TChart;
     ChartDataLineSeries1: TLineSeries;
+    ChartSatSNR: TChart;
     DateTimeIntervalDataSource: TDateTimeIntervalChartSource;
+    gbData: TGroupBox;
+    gbPolar: TGroupBox;
+    gbSatSNR: TGroupBox;
+    gridGPSdata: TStringGrid;
     lblTime: TLabel;
     MainMenu1: TMainMenu;
-    StatusTextList: TMemo;
     mnClose: TMenuItem;
     barStream: TProgressBar;
+    PageControl: TPageControl;
     PanelChart: TPanel;
+    plData: TPanel;
+    SatPolar: TChart;
+    SatPolarSeries: TPolarSeries;
     Separator3: TMenuItem;
     mnMainSaveCSV: TMenuItem;
     Separator2: TMenuItem;
@@ -86,26 +94,23 @@ type
     mnSaveGrid: TMenuItem;
     pmnSatSNR: TPopupMenu;
     pmnData: TPopupMenu;
-    SatPolar: TChart;
-    SatPolarSeries: TPolarSeries;
-    ChartSatSNR: TChart;
-    gbPolar: TGroupBox;
-    gbData: TGroupBox;
-    gbSatSNR: TGroupBox;
     ImageList1: TImageList;
     SatPolarSource: TListChartSource;
     SatSNRBarSource: TListChartSource;
     OpenDialog: TOpenDialog;
     plUser: TPanel;
-    plData: TPanel;
     btnContinue: TSpeedButton;
     btnHalt: TSpeedButton;
     btnEnd: TSpeedButton;
     SaveDialog: TSaveDialog;
-    gridGPSdata: TStringGrid;
     barSleepTime: TTrackBar;
     Splitter1: TSplitter;
     StatusBar: TStatusBar;
+    StatusTextList: TMemo;
+    gridCSVdata: TStringGrid;
+    tsEKFtool: TTabSheet;
+    tsGPSTool: TTabSheet;
+    tsData: TTabSheet;
     XMLPropStorage1: TXMLPropStorage;
     procedure actAboutExecute(Sender: TObject);
     procedure actCloseExecute(Sender: TObject);
@@ -122,10 +127,17 @@ type
     procedure FormDropFiles(Sender: TObject; const FileNames: array of string);
     procedure gridGPSdataHeaderClick(Sender: TObject; IsColumn: Boolean;
       Index: Integer);
+    procedure gridGPSdataPrepareCanvas(Sender: TObject; aCol, aRow: Integer;
+      aState: TGridDrawState);
+    procedure PageControlChange(Sender: TObject);
     procedure plDataResize(Sender: TObject);
     procedure SatPolarAfterDrawBackWall(ASender: TChart; ACanvas: TCanvas;
       const ARect: TRect);
     procedure FormCreate(Sender: TObject);
+    procedure StatusTextListMouseWheelDown(Sender: TObject; Shift: TShiftState;
+      MousePos: TPoint; var Handled: Boolean);
+    procedure StatusTextListMouseWheelUp(Sender: TObject; Shift: TShiftState;
+      MousePos: TPoint; var Handled: Boolean);
   private
     procedure DoLoadFile(aFileName: string);
     procedure CreateSatPolarDiagram(const sats: TGPSdata);
@@ -167,6 +179,11 @@ implementation
 
 procedure TForm1.FormCreate(Sender: TObject);
 begin
+  {https://forum.lazarus.freepascal.org/index.php?topic=34510.0}
+  {$IFDEF WINDOWS}
+      Application.MainFormOnTaskBar := True;
+  {$ENDIF}
+
   Caption:=capApplication;
   gbSatSNR.Caption:=capSatSNR;
   gbSatSNR.Hint:=hntSatSNR;
@@ -225,6 +242,20 @@ begin
   inputstream.Position:=0;
 end;
 
+procedure TForm1.StatusTextListMouseWheelDown(Sender: TObject;
+  Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+begin
+  if ssCtrl in Shift then
+    StatusTextList.Font.Size:=StatusTextList.Font.Size-1;
+end;
+
+procedure TForm1.StatusTextListMouseWheelUp(Sender: TObject;
+  Shift: TShiftState; MousePos: TPoint; var Handled: Boolean);
+begin
+  if ssCtrl in Shift then
+    StatusTextList.Font.Size:=StatusTextList.Font.Size+1;
+end;
+
 procedure TForm1.FormClose(Sender: TObject; var CloseAction: TCloseAction);
 begin
   Screen.Cursor:=crDefault;
@@ -254,6 +285,40 @@ begin
   end;
 end;
 
+procedure TForm1.gridGPSdataPrepareCanvas(Sender: TObject; aCol, aRow: Integer;
+  aState: TGridDrawState);
+var
+  gridtextstyle: TTextStyle;
+
+begin
+  if aCol=1 then begin
+    gridtextstyle:=gridGPSdata.Canvas.TextStyle;
+    gridtextstyle.Alignment:=taCenter;
+    gridGPSdata.Canvas.TextStyle:=gridtextstyle;
+  end;
+end;
+
+procedure TForm1.PageControlChange(Sender: TObject);
+var
+  tmpStream: TStringStream;
+
+begin
+  if PageControl.ActivePage=tsData then begin
+    if csvlist.Count>1 then begin
+      gridCSVdata.RowCount:=1;
+      Application.ProcessMessages;
+      tmpStream:=TStringStream.Create;
+      try
+        csvlist.SaveToStream(tmpStream);
+        tmpStream.Position:=0;
+        gridCSVdata.LoadFromCSVStream(tmpStream, sep);
+      finally
+        tmpStream.Free;
+      end;
+    end;
+  end;
+end;
+
 procedure TForm1.plDataResize(Sender: TObject);
 const
   listhight=640;
@@ -274,6 +339,8 @@ end;
 procedure TForm1.FormActivate(Sender: TObject);
 begin
   actSaveCSV.Enabled:=not cbSaveCSV.Checked;
+  if PageControl.ActivePage=tsData then
+    PageControl.ActivePage:=tsGPStool;
 end;
 
 procedure TForm1.ResetGlobalVariables;
@@ -396,9 +463,6 @@ begin
 end;
 
 procedure TForm1.DoLoadFile(aFileName: string);
-var
-  PureFileName: string;
-
 begin
   StatusBar.Panels[2].Text:='';
   ResetGlobalVariables;
@@ -413,7 +477,6 @@ begin
     exit;
   end;
 
-  PureFileName:=ExtractFileName(aFileName);
   MsgFormatType:=GetMsgFormatType(aFileName);
   if MsgFormatType>1 then begin
     Screen.Cursor:=crHourGlass;
@@ -550,6 +613,7 @@ begin
   case msg.msgid of
      1: SYS_STATUS(msg, offset, data);
      2: SYS_TIME(msg, offset, data);
+     4: PING(msg, offset, data);
     24: GPS_RAW_INT(msg, offset, data);
     25: if msg.msglength>1 then begin
           GPS_STATUS(msg, offset, data);
@@ -609,13 +673,13 @@ var
     result:=false;
     case FormatType of
       1..5: begin
-        result:=(msg.msgid<MaxMsgID) and (msg.msgbytes[2]=0) and (msg.msgbytes[3]=0);
+        result:=(msg.msgid<MaxMsgID) and
+                (msg.msgbytes[2]=0) and
+                (msg.msgbytes[3]=0);
+//        result:=CheckCRC16MAV(msg, LengthFixPartFD);
 
       end;
-      6: begin
-        result:=(msg.msgid>0);
-
-      end;
+      6: result:=CheckCRC16X25(msg, LengthFixPartBC);
     end;
     msg.valid:=result;
   end;
